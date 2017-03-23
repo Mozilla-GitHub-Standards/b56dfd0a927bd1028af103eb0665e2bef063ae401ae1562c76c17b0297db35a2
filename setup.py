@@ -1,26 +1,50 @@
-""" Setup file.
-"""
+import sys
 import os
+import codecs
 from setuptools import setup, find_packages
 
-here = os.path.abspath(os.path.dirname(__file__))
 
-with open(os.path.join(here, 'README.md')) as f:
-    README = f.read()
+# Helper to publish to pypi. Just call `python setup.py publish`
+if sys.argv[-1] == 'publish':
+    os.system('python setup.py sdist upload')
+    os.system('python setup.py bdist_wheel upload')
+    print('You probably want to also tag the version now:')
+    print('  git tag -a %s -m "version %s"' % (version, version))
+    print('  git push --tags')
+    sys.exit()
 
 
-setup(name='signing_clients',
-    version='0.1.14',
-    description="Applications signature/manifest manipulator and receipt verifier",
-    long_description=README,
+def read(*parts):
+    filename = os.path.join(os.path.dirname(__file__), *parts)
+    with codecs.open(filename, encoding='utf-8') as fp:
+        return fp.read()
+
+
+setup(
+    name='signing_clients',
+    version='0.2.0',
+    description='Applications signature/manifest manipulator and receipt verifier',
+    long_description=read('README.md'),
     classifiers=[
-        "Programming Language :: Python",
+        'Development Status :: 5 - Production/Stable',
+        'Topic :: Security :: Cryptography',
+        'Topic :: Software Development :: Libraries :: Python Modules',
+        'Programming Language :: Python',
+        'Operating System :: OS Independent',
+        'Intended Audience :: Developers',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: Implementation :: CPython',
     ],
-    keywords="web services",
+    keywords='web services',
     author='Ryan Tilder',
-    author_email="service-dev@mozilla.com",
-    url="http://mozilla.org",
-    install_requires=["M2Crypto"],
+    author_email='service-dev@mozilla.com',
+    url='http://mozilla.org',
+    install_requires=['asn1crypto'],
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,

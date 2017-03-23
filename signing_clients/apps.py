@@ -14,11 +14,7 @@ import zipfile
 from base64 import b64encode, b64decode
 from cStringIO import StringIO
 
-from M2Crypto import Err
-from M2Crypto.BIO import BIOError, MemoryBuffer
-from M2Crypto.SMIME import SMIME, PKCS7, PKCS7_DETACHED, PKCS7_BINARY
-from M2Crypto.X509 import X509_Stack
-from M2Crypto.m2 import pkcs7_read_bio_der
+from asn1crypto import cms
 
 # Lame hack to take advantage of a not well known OpenSSL flag.  This omits
 # the S/MIME capabilities when generating a PKCS#7 signature.  If included,
@@ -357,26 +353,6 @@ class JarExtractor(object):
                     zout.writestr('META-INF/ids.json', self.ids)
 
 
-class JarSigner(object):
-
-    def __init__(self, privkey, certchain):
-        self.privkey = privkey
-        self.chain = certchain
-        self.smime = SMIME()
-        # We short circuit the key loading functions in the SMIME class
-        self.smime.pkey = self.privkey
-        self.smime.set_x509_stack(self.chain)
-
-    def sign(self, data):
-        # XPI signing is JAR signing which uses PKCS7 detached signatures
-        pkcs7 = self.smime.sign(MemoryBuffer(data),
-                                PKCS7_DETACHED | PKCS7_BINARY
-                                | PKCS7_NOSMIMECAP)
-        pkcs7_buffer = MemoryBuffer()
-        pkcs7.write_der(pkcs7_buffer)
-        return pkcs7
-
-
 # This is basically a dumbed down version of M2Crypto.SMIME.load_pkcs7 but
 # that reads DER instead of only PEM formatted files
 def get_signature_serial_number(pkcs7):
@@ -384,14 +360,12 @@ def get_signature_serial_number(pkcs7):
     Extracts the serial number out of a DER formatted, detached PKCS7
     signature buffer
     """
-    pkcs7_buf = MemoryBuffer(pkcs7)
-    if pkcs7_buf is None:
-        raise BIOError(Err.get_error())
-
-    p7_ptr = pkcs7_read_bio_der(pkcs7_buf.bio)
-    p = PKCS7(p7_ptr, 1)
+    content = cms.ContentInfo.load(pkcs7)['content'].native
 
     # Fetch the certificate stack that is the list of signers
     # Since there should only be one in this use case, take the zeroth
     # cert in the stack and return its serial number
-    return p.get0_signers(X509_Stack())[0].get_serial_number()
+    try:
+        return content['signer_infos'][0]['sid']['serial_number']
+    except (IndexError, KeyError):
+        return None

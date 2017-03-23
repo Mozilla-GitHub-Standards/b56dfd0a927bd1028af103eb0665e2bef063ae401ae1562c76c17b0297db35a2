@@ -106,7 +106,7 @@ SHA1-Digest: B5HkCxgt6fXNr+dWPwXH2aALVWk=
 """
 
 
-def test_file(fname):
+def get_file(fname):
     return os.path.join(os.path.dirname(__file__), fname)
 
 
@@ -120,7 +120,7 @@ class SigningTest(unittest.TestCase):
         return os.path.join(self.tmpdir, fname)
 
     def _extract(self, omit=False, newlines=False):
-        return JarExtractor(test_file('test-jar.zip'),
+        return JarExtractor(get_file('test-jar.zip'),
                             omit_signature_sections=omit,
                             extra_newlines=newlines)
 
@@ -157,17 +157,17 @@ class SigningTest(unittest.TestCase):
         self.assertRaises(ParsingError, Manifest.parse, BROKEN_MANIFEST)
 
     def test_07_wrapping(self):
-        extracted = JarExtractor(test_file('test-jar-long-path.zip'),
+        extracted = JarExtractor(get_file('test-jar-long-path.zip'),
                                  omit_signature_sections=False)
         self.assertEqual(str(extracted.manifest), VERY_LONG_MANIFEST)
 
     def test_08_unicode(self):
-        extracted = JarExtractor(test_file('test-jar-unicode.zip'),
+        extracted = JarExtractor(get_file('test-jar-unicode.zip'),
                                  omit_signature_sections=False)
         self.assertEqual(str(extracted.manifest), UNICODE_MANIFEST)
 
     def test_09_serial_number_extraction(self):
-        with open(test_file('zigbert.test.pkcs7.der'), 'r') as f:
+        with open(get_file('zigbert.test.pkcs7.der'), 'r') as f:
             serialno = get_signature_serial_number(f.read())
         # Signature occured on Thursday, January 22nd 2015 at 11:02:22am PST
         # The signing service returns a Python time.time() value multiplied
@@ -178,7 +178,7 @@ class SigningTest(unittest.TestCase):
         # This zip contains META-INF/manifest.mf, META-INF/zigbert.sf, and
         # META-INF/zigbert.rsa in addition to the contents of the basic test
         # archive test-jar.zip
-        extracted = JarExtractor(test_file('test-jar-meta-inf-exclude.zip'),
+        extracted = JarExtractor(get_file('test-jar-meta-inf-exclude.zip'),
                                  omit_signature_sections=True)
         self.assertEqual(str(extracted.manifest), MANIFEST)
 
@@ -186,10 +186,10 @@ class SigningTest(unittest.TestCase):
     #       Much more readily done in trunion source when signing-clients is
     #       merged there.
     def test_11_make_signed(self):
-        extracted = JarExtractor(test_file('test-jar.zip'),
+        extracted = JarExtractor(get_file('test-jar.zip'),
                                  omit_signature_sections=True)
         # Not a valid signature but a PKCS7 data blob, at least
-        with open(test_file('zigbert.test.pkcs7.der'), 'r') as f:
+        with open(get_file('zigbert.test.pkcs7.der'), 'r') as f:
             signature = f.read()
             signature_digest = sha.new(signature)
         signed_file = self.tmp_file('test-jar-signed.zip')
