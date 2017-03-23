@@ -6,12 +6,14 @@
 # ***** END LICENSE BLOCK *****
 
 import os.path
-import sha
 import shutil
 import tempfile
 import unittest
 
+from hashlib import sha1
+
 from signing_clients.apps import (
+    force_bytes,
     Manifest,
     JarExtractor,
     ParsingError,
@@ -22,7 +24,7 @@ from signing_clients.apps import (
 )
 
 
-MANIFEST_BODY = """Name: test-file
+MANIFEST_BODY = b"""Name: test-file
 Digest-Algorithms: MD5 SHA1
 MD5-Digest: 5BXJnAbD0DzWPCj6Ve/16w==
 SHA1-Digest: 5Hwcbg1KaPMqjDAXV/XDq/f30U0=
@@ -33,14 +35,14 @@ MD5-Digest: 53dwfEn/GnFiWp0NQyqWlA==
 SHA1-Digest: 4QzlrC8QyhQW1T0/Nay5kRr3gVo=
 """
 
-MANIFEST = "Manifest-Version: 1.0\n\n" + MANIFEST_BODY
+MANIFEST = b"Manifest-Version: 1.0\n\n" + MANIFEST_BODY
 
-SIGNATURE = """Signature-Version: 1.0
+SIGNATURE = b"""Signature-Version: 1.0
 MD5-Digest-Manifest: dughN2Z8uP3eXIZm7GVpjA==
 SHA1-Digest-Manifest: rnDwKcEuRYqy57DFyzwK/Luul+0=
 """
 
-SIGNATURES_BODY = """Name: test-file
+SIGNATURES_BODY = b"""Name: test-file
 Digest-Algorithms: MD5 SHA1
 MD5-Digest: jf86A0RSFH3oREWLkRAoIg==
 SHA1-Digest: 9O+Do4sVlAh82x9ZYu1GbtyNToA=
@@ -51,17 +53,17 @@ MD5-Digest: YHTqD4SINsoZngWvbGIhAA==
 SHA1-Digest: lys436ZGYKrHY6n57Iy/EyF5FuI=
 """
 
-SIGNATURES = SIGNATURE + "\n" + SIGNATURES_BODY
+SIGNATURES = SIGNATURE + b"\n" + SIGNATURES_BODY
 
-EXTRA_NEWLINE_SIGNATURE = """Signature-Version: 1.0
+EXTRA_NEWLINE_SIGNATURE = b"""Signature-Version: 1.0
 MD5-Digest-Manifest: A3IkNTcP2L6JzwQzkp+6Kg==
 SHA1-Digest-Manifest: xQKf9C1JcIjfZoFxTWt3pzW2KYI=
 
 """
 
-EXTRA_NEWLINE_SIGNATURES = EXTRA_NEWLINE_SIGNATURE + "\n" + SIGNATURES_BODY + "\n"  # noqa
+EXTRA_NEWLINE_SIGNATURES = EXTRA_NEWLINE_SIGNATURE + b"\n" + SIGNATURES_BODY + b"\n"  # noqa
 
-CONTINUED_MANIFEST = MANIFEST + """
+CONTINUED_MANIFEST = MANIFEST + b"""
 Name: test-dir/nested-test-dir/nested-test-dir/nested-test-dir/nested-te
  st-file
 Digest-Algorithms: MD5 SHA1
@@ -70,14 +72,14 @@ SHA1-Digest: 4QzlrC8QyhQW1T0/Nay5kRr3gVo=
 """
 
 # Test for 72 byte limit test
-BROKEN_MANIFEST = MANIFEST + """
+BROKEN_MANIFEST = MANIFEST + b"""
 Name: test-dir/nested-test-dir/nested-test-dir/nested-test-dir/nested-test-file
 Digest-Algorithms: MD5 SHA1
 MD5-Digest: 53dwfEn/GnFiWp0NQyqWlA==
 SHA1-Digest: 4QzlrC8QyhQW1T0/Nay5kRr3gVo=
 """
 
-VERY_LONG_MANIFEST = """Manifest-Version: 1.0
+VERY_LONG_MANIFEST = b"""Manifest-Version: 1.0
 
 Name: test-file
 Digest-Algorithms: MD5 SHA1
@@ -97,7 +99,7 @@ SHA1-Digest: lIbbwE8/2LFOD00+bJ/Wu80lR/I=
 """
 
 # Test for Unicode
-UNICODE_MANIFEST = """Manifest-Version: 1.0
+UNICODE_MANIFEST = u"""Manifest-Version: 1.0
 
 Name: test-dir/súité-höñe.txt
 Digest-Algorithms: MD5 SHA1
@@ -129,29 +131,29 @@ class SigningTest(unittest.TestCase):
 
     def test_01_manifest(self):
         extracted = self._extract()
-        self.assertEqual(str(extracted.manifest), MANIFEST)
+        self.assertEqual(force_bytes(extracted.manifest), MANIFEST)
         extracted = self._extract(newlines=True)
-        self.assertEqual(str(extracted.manifest), MANIFEST + "\n")
+        self.assertEqual(force_bytes(extracted.manifest), MANIFEST + b"\n")
 
     def test_02_signature(self):
         extracted = self._extract()
-        self.assertEqual(str(extracted.signature), SIGNATURE)
+        self.assertEqual(force_bytes(extracted.signature), SIGNATURE)
         extracted = self._extract(newlines=True)
-        self.assertEqual(str(extracted.signature), EXTRA_NEWLINE_SIGNATURE)
+        self.assertEqual(force_bytes(extracted.signature), EXTRA_NEWLINE_SIGNATURE)
 
     def test_03_signatures(self):
         extracted = self._extract()
-        self.assertEqual(str(extracted.signatures), SIGNATURES)
+        self.assertEqual(force_bytes(extracted.signatures), SIGNATURES)
         extracted = self._extract(newlines=True)
-        self.assertEqual(str(extracted.signatures), EXTRA_NEWLINE_SIGNATURES)
+        self.assertEqual(force_bytes(extracted.signatures), EXTRA_NEWLINE_SIGNATURES)
 
     def test_04_signatures_omit(self):
         extracted = self._extract(True)
-        self.assertEqual(str(extracted.signatures), SIGNATURE)
+        self.assertEqual(force_bytes(extracted.signatures), SIGNATURE)
 
     def test_05_continuation(self):
         manifest = Manifest.parse(CONTINUED_MANIFEST)
-        self.assertEqual(str(manifest), CONTINUED_MANIFEST)
+        self.assertEqual(force_bytes(manifest), CONTINUED_MANIFEST)
 
     def test_06_line_too_long(self):
         self.assertRaises(ParsingError, Manifest.parse, BROKEN_MANIFEST)
@@ -159,15 +161,16 @@ class SigningTest(unittest.TestCase):
     def test_07_wrapping(self):
         extracted = JarExtractor(get_file('test-jar-long-path.zip'),
                                  omit_signature_sections=False)
-        self.assertEqual(str(extracted.manifest), VERY_LONG_MANIFEST)
+        self.assertEqual(force_bytes(extracted.manifest), VERY_LONG_MANIFEST)
 
     def test_08_unicode(self):
         extracted = JarExtractor(get_file('test-jar-unicode.zip'),
                                  omit_signature_sections=False)
-        self.assertEqual(str(extracted.manifest), UNICODE_MANIFEST)
+        self.assertEqual(
+            force_bytes(extracted.manifest).decode('utf-8'), UNICODE_MANIFEST)
 
     def test_09_serial_number_extraction(self):
-        with open(get_file('zigbert.test.pkcs7.der'), 'r') as f:
+        with open(get_file('zigbert.test.pkcs7.der'), 'rb') as f:
             serialno = get_signature_serial_number(f.read())
         # Signature occured on Thursday, January 22nd 2015 at 11:02:22am PST
         # The signing service returns a Python time.time() value multiplied
@@ -180,7 +183,7 @@ class SigningTest(unittest.TestCase):
         # archive test-jar.zip
         extracted = JarExtractor(get_file('test-jar-meta-inf-exclude.zip'),
                                  omit_signature_sections=True)
-        self.assertEqual(str(extracted.manifest), MANIFEST)
+        self.assertEqual(force_bytes(extracted.manifest), MANIFEST)
 
     # TODO: Calculate the signature on the fly and verify it appropriately.
     #       Much more readily done in trunion source when signing-clients is
@@ -189,9 +192,11 @@ class SigningTest(unittest.TestCase):
         extracted = JarExtractor(get_file('test-jar.zip'),
                                  omit_signature_sections=True)
         # Not a valid signature but a PKCS7 data blob, at least
-        with open(get_file('zigbert.test.pkcs7.der'), 'r') as f:
+        with open(get_file('zigbert.test.pkcs7.der'), 'rb') as f:
             signature = f.read()
-            signature_digest = sha.new(signature)
+            signature_digest = sha1()
+            signature_digest.update(signature)
+
         signed_file = self.tmp_file('test-jar-signed.zip')
         sigpath = 'zoidberg'
         extracted.make_signed(signature, signed_file, sigpath=sigpath)
@@ -204,12 +209,14 @@ class SigningTest(unittest.TestCase):
                      'test-dir/', 'test-dir/nested-test-file']
             zfiles = [ f.filename for f in sorted(zin.filelist, key=file_key)]
             self.assertEqual(files, zfiles)
-            zip_sig_digest = sha.new(zin.read('META-INF/%s.rsa' % sigpath))
+            zip_sig_digest = sha1()
+            zip_sig_digest.update(zin.read('META-INF/%s.rsa' % sigpath))
+
             self.assertEqual(signature_digest.hexdigest(),
                              zip_sig_digest.hexdigest())
         # And make sure the manifest is correct
         signed = JarExtractor(signed_file, omit_signature_sections=True)
-        self.assertEqual(str(extracted.manifest), str(signed.manifest))
+        self.assertEqual(force_bytes(extracted.manifest), force_bytes(signed.manifest))
 
     # See https://bugzil.la/1169574
     def test_12_metainf_case_sensitivity(self):
