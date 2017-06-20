@@ -9,16 +9,13 @@ import hashlib
 import itertools
 import os.path
 import re
-import zipfile
-
+from zipfile import ZipFile, ZIP_DEFLATED
 from base64 import b64encode, b64decode
-from cStringIO import StringIO
 
-from M2Crypto import Err
-from M2Crypto.BIO import BIOError, MemoryBuffer
-from M2Crypto.SMIME import SMIME, PKCS7, PKCS7_DETACHED, PKCS7_BINARY
-from M2Crypto.X509 import X509_Stack
-from M2Crypto.m2 import pkcs7_read_bio_der
+from six import PY3, string_types, text_type, python_2_unicode_compatible
+from six.moves import cStringIO as StringIO
+
+from asn1crypto import cms
 
 # Lame hack to take advantage of a not well known OpenSSL flag.  This omits
 # the S/MIME capabilities when generating a PKCS#7 signature.  If included,
@@ -34,14 +31,24 @@ headers_re = re.compile(
 continuation_re = re.compile(r"""^ (.*)""", re.I)
 directory_re = re.compile(r"[\\/]$")
 
-# Python 2.6 and earlier doesn't have context manager support
-ZipFile = zipfile.ZipFile
-if not hasattr(zipfile.ZipFile, "__enter__"):
-    class ZipFile(zipfile.ZipFile):
-        def __enter__(self):
-            return self
-        def __exit__(self, type, value, traceback):
-            self.close()
+
+# partially copied from Django
+def force_bytes(s, encoding='utf-8', errors='strict'):
+    if isinstance(s, bytes):
+        if encoding == 'utf-8':
+            return s
+        else:
+            return s.decode('utf-8', errors).encode(encoding, errors)
+    if not isinstance(s, string_types):
+        try:
+            if PY3:
+                return text_type(s).encode(encoding)
+            else:
+                return bytes(s)
+        except UnicodeEncodeError:
+            return text_type(s).encode(encoding, errors)
+    else:
+        return s.encode(encoding, errors)
 
 
 class ParsingError(Exception):
@@ -89,9 +96,9 @@ def file_key(zinfo):
 
 def _digest(data):
     md5 = hashlib.md5()
-    md5.update(data)
+    md5.update(force_bytes(data))
     sha1 = hashlib.sha1()
-    sha1.update(data)
+    sha1.update(force_bytes(data))
     return {'md5': md5.digest(), 'sha1': sha1.digest()}
 
 
@@ -108,36 +115,34 @@ class Section(object):
         # sensitive and should not be changed without reading through
         # http://docs.oracle.com/javase/7/docs/technotes/guides/jar/jar.html#JAR%20Manifest
         # thoroughly.
-        algos = ''
-        order = self.digests.keys()
+        algos = b''
+        order = list(self.digests.keys())
         order.sort()
         for algo in order:
-            algos += " %s" % algo.upper()
-        entry = ''
+            algos += b' %s' % force_bytes(algo.upper())
+        entry = b''
         # The spec for zip files only supports extended ASCII and UTF-8
         # See http://www.pkware.com/documents/casestudies/APPNOTE.TXT
         # and search for "language encoding" for details
         #
         # See https://bugzilla.mozilla.org/show_bug.cgi?id=1013347
-        if isinstance(self.name, unicode):
-            name = self.name.encode("utf-8")
-        else:
-            name = self.name
-        name = "Name: %s" % name
+        name = b'Name: %s' % force_bytes(self.name)
+
         # See https://bugzilla.mozilla.org/show_bug.cgi?id=841569#c35
         while name:
             entry += name[:72]
             name = name[72:]
             if name:
-                entry += "\n "
-        entry += "\n"
-        entry += "Digest-Algorithms:%s\n" % algos
+                entry += b'\n '
+        entry += b'\n'
+        entry += b'Digest-Algorithms:%s\n' % force_bytes(algos)
         for algo in order:
-            entry += "%s-Digest: %s\n" % (algo.upper(),
-                                          b64encode(self.digests[algo]))
-        return entry
+            entry += b'%s-Digest: %s\n' % (force_bytes(algo.upper()),
+                                           b64encode(self.digests[algo]))
+        return entry.decode('utf-8')
 
 
+@python_2_unicode_compatible
 class Manifest(list):
     version = '1.0'
     # Older versions of Firefox crash if a JAR manifest style file doesn't
@@ -147,7 +152,7 @@ class Manifest(list):
 
     def __init__(self, *args, **kwargs):
         super(Manifest, self).__init__(*args)
-        for k, v in kwargs.iteritems():
+        for k, v in kwargs.items():
             setattr(self, k, v)
 
     @classmethod
@@ -156,7 +161,7 @@ class Manifest(list):
         if hasattr(buf, 'readlines'):
             fest = buf
         else:
-            fest = StringIO(buf)
+            fest = StringIO(force_bytes(buf).decode('utf-8'))
         kwargs = {}
         items = []
         item = {}
@@ -220,18 +225,21 @@ class Manifest(list):
 
     @property
     def header(self):
-        return "%s-Version: %s" % (type(self).__name__.title(),
-                                       self.version)
+        return b"%s-Version: %s" % (
+            force_bytes(type(self).__name__.title()),
+            force_bytes(self.version))
 
     @property
     def body(self):
-        return "\n".join([str(i) for i in self])
+        return b"\n".join([force_bytes(i) for i in self])
 
     def __str__(self):
-        segments = [self.header, "", self.body]
+        segments = [self.header, b"", self.body]
         if self.extra_newline:
-            segments.append("")
-        return "\n".join(segments)
+            segments.append(b"")
+        return (b"\n".join(
+            force_bytes(item) for item in segments)
+        ).decode('utf-8')
 
 
 class Signature(Manifest):
@@ -241,21 +249,22 @@ class Signature(Manifest):
 
     @property
     def digest_manifest(self):
-        return ["%s-Digest-Manifest: %s" % (i[0].upper(), b64encode(i[1]))
-                for i in sorted(self.digest_manifests.iteritems())]
+        return [b"%s-Digest-Manifest: %s" %
+                (force_bytes(item[0].upper()), b64encode(item[1]))
+                for item in sorted(self.digest_manifests.items())]
 
     @property
     def header(self):
-        segments = [str(super(Signature, self).header)]
+        segments = [force_bytes(super(Signature, self).header)]
         segments.extend(self.digest_manifest)
         if self.extra_newline:
-            segments.append("")
-        return "\n".join(segments)
+            segments.append(b"")
+        return b"\n".join(force_bytes(item) for item in segments)
 
     # So we can omit the individual signature sections
     def __str__(self):
         if self.omit_individual_sections:
-            return str(self.header) + "\n"
+            return (self.header + b"\n").decode('utf-8')
         return super(Signature, self).__str__()
 
 
@@ -314,7 +323,7 @@ class JarExtractor(object):
         # signatures here
         if not self._sig:
             self._sig = Signature([self._sign(f) for f in self._digests],
-                                  digest_manifests=_digest(str(self.manifest)),
+                                  digest_manifests=_digest(force_bytes(self.manifest)),
                                   omit_individual_sections=self.omit_sections,
                                   extra_newline=self.extra_newlines)
         return self._sig
@@ -323,7 +332,7 @@ class JarExtractor(object):
     def signature(self):
         # Returns only the x-Digest-Manifest signature and omits the individual
         # section signatures
-        return self.signatures.header + "\n"
+        return self.signatures.header + b"\n"
 
     def make_signed(self, signature, outpath=None, sigpath=None):
         outpath = outpath or self.outpath
@@ -340,12 +349,12 @@ class JarExtractor(object):
         sigpath = os.path.join('META-INF', sigpath)
 
         with ZipFile(self.inpath, 'r') as zin:
-            with ZipFile(outpath, 'w', zipfile.ZIP_DEFLATED) as zout:
+            with ZipFile(outpath, 'w', ZIP_DEFLATED) as zout:
                 # The PKCS7 file("foo.rsa") *MUST* be the first file in the
                 # archive to take advantage of Firefox's optimized downloading
                 # of XPIs
                 zout.writestr("%s.rsa" % sigpath, signature)
-                for f in sorted(zin.infolist()):
+                for f in zin.infolist():
                     # Make sure we exclude any of our signature and manifest
                     # files
                     if ignore_certain_metainf_files(f.filename):
@@ -357,26 +366,6 @@ class JarExtractor(object):
                     zout.writestr('META-INF/ids.json', self.ids)
 
 
-class JarSigner(object):
-
-    def __init__(self, privkey, certchain):
-        self.privkey = privkey
-        self.chain = certchain
-        self.smime = SMIME()
-        # We short circuit the key loading functions in the SMIME class
-        self.smime.pkey = self.privkey
-        self.smime.set_x509_stack(self.chain)
-
-    def sign(self, data):
-        # XPI signing is JAR signing which uses PKCS7 detached signatures
-        pkcs7 = self.smime.sign(MemoryBuffer(data),
-                                PKCS7_DETACHED | PKCS7_BINARY
-                                | PKCS7_NOSMIMECAP)
-        pkcs7_buffer = MemoryBuffer()
-        pkcs7.write_der(pkcs7_buffer)
-        return pkcs7
-
-
 # This is basically a dumbed down version of M2Crypto.SMIME.load_pkcs7 but
 # that reads DER instead of only PEM formatted files
 def get_signature_serial_number(pkcs7):
@@ -384,14 +373,12 @@ def get_signature_serial_number(pkcs7):
     Extracts the serial number out of a DER formatted, detached PKCS7
     signature buffer
     """
-    pkcs7_buf = MemoryBuffer(pkcs7)
-    if pkcs7_buf is None:
-        raise BIOError(Err.get_error())
-
-    p7_ptr = pkcs7_read_bio_der(pkcs7_buf.bio)
-    p = PKCS7(p7_ptr, 1)
+    content = cms.ContentInfo.load(pkcs7)['content'].native
 
     # Fetch the certificate stack that is the list of signers
     # Since there should only be one in this use case, take the zeroth
     # cert in the stack and return its serial number
-    return p.get0_signers(X509_Stack())[0].get_serial_number()
+    try:
+        return content['signer_infos'][0]['sid']['serial_number']
+    except (IndexError, KeyError):
+        return None
