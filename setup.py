@@ -22,7 +22,7 @@ def read(*parts):
 
 setup(
     name='signing_clients',
-    version='0.2.0',
+    version='1.0',
     description='Applications signature/manifest manipulator and receipt verifier',
     long_description=read('README.md'),
     classifiers=[
