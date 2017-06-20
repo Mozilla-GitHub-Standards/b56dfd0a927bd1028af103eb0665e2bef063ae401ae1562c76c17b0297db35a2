@@ -3,6 +3,7 @@ import os
 import codecs
 from setuptools import setup, find_packages
 
+version = '1.0'
 
 # Helper to publish to pypi. Just call `python setup.py publish`
 if sys.argv[-1] == 'publish':
@@ -22,7 +23,7 @@ def read(*parts):
 
 setup(
     name='signing_clients',
-    version='1.0',
+    version=version,
     description='Applications signature/manifest manipulator and receipt verifier',
     long_description=read('README.md'),
     classifiers=[
