@@ -102,6 +102,7 @@ def _digest(data):
     return {'md5': md5.digest(), 'sha1': sha1.digest()}
 
 
+@python_2_unicode_compatible
 class Section(object):
     __slots__ = ('name', 'algos', 'digests')
 
@@ -242,6 +243,7 @@ class Manifest(list):
         ).decode('utf-8')
 
 
+@python_2_unicode_compatible
 class Signature(Manifest):
     omit_individual_sections = True
     digest_manifests = {}
