@@ -180,7 +180,7 @@ class SigningTest(unittest.TestCase):
     def test_serial_number_extraction(self):
         with open(get_file('mozilla-generated-by-openssl.pkcs7.der'), 'rb') as f:
             serialno = get_signature_serial_number(f.read())
-        self.assertEqual(1421953342960, serialno)
+        self.assertEqual(1498181554500, serialno)
 
     def test_resigning_manifest_exclusions(self):
         # This zip contains META-INF/manifest.mf, META-INF/zigbert.sf, and

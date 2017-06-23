@@ -15,12 +15,12 @@ from base64 import b64encode, b64decode
 from six import PY3, string_types, text_type, python_2_unicode_compatible
 from six.moves import cStringIO as StringIO
 
-from asn1crypto import cms
+from asn1crypto import cms, core as asn1core
 
-# Lame hack to take advantage of a not well known OpenSSL flag.  This omits
-# the S/MIME capabilities when generating a PKCS#7 signature.  If included,
-# XPI signature verification breaks.
-PKCS7_NOSMIMECAP = 0x200
+# Patch asn1crypto teletex codec to actually be latin 1 (iso-8859-1)
+# See https://github.com/wbond/asn1crypto/issues/60 and
+# https://github.com/mozilla/signing-clients/issues/23 for more details
+asn1core.TeletexString._encoding = 'latin1'
 
 headers_re = re.compile(
     r"""^((?:Manifest|Signature)-Version
