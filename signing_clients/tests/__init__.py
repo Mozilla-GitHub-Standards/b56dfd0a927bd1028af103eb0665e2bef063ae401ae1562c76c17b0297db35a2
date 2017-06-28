@@ -126,50 +126,50 @@ class SigningTest(unittest.TestCase):
                             omit_signature_sections=omit,
                             extra_newlines=newlines)
 
-    def test_00_extractor(self):
+    def test_extractor(self):
         self.assertTrue(isinstance(self._extract(), JarExtractor))
 
-    def test_01_manifest(self):
+    def test_manifest(self):
         extracted = self._extract()
         self.assertEqual(force_bytes(extracted.manifest), MANIFEST)
         extracted = self._extract(newlines=True)
         self.assertEqual(force_bytes(extracted.manifest), MANIFEST + b"\n")
 
-    def test_02_signature(self):
+    def test_signature(self):
         extracted = self._extract()
         self.assertEqual(force_bytes(extracted.signature), SIGNATURE)
         extracted = self._extract(newlines=True)
         self.assertEqual(force_bytes(extracted.signature), EXTRA_NEWLINE_SIGNATURE)
 
-    def test_03_signatures(self):
+    def test_signatures(self):
         extracted = self._extract()
         self.assertEqual(force_bytes(extracted.signatures), SIGNATURES)
         extracted = self._extract(newlines=True)
         self.assertEqual(force_bytes(extracted.signatures), EXTRA_NEWLINE_SIGNATURES)
 
-    def test_04_signatures_omit(self):
+    def test_signatures_omit(self):
         extracted = self._extract(True)
         self.assertEqual(force_bytes(extracted.signatures), SIGNATURE)
 
-    def test_05_continuation(self):
+    def test_continuation(self):
         manifest = Manifest.parse(CONTINUED_MANIFEST)
         self.assertEqual(force_bytes(manifest), CONTINUED_MANIFEST)
 
-    def test_06_line_too_long(self):
+    def test_line_too_long(self):
         self.assertRaises(ParsingError, Manifest.parse, BROKEN_MANIFEST)
 
-    def test_07_wrapping(self):
+    def test_wrapping(self):
         extracted = JarExtractor(get_file('test-jar-long-path.zip'),
                                  omit_signature_sections=False)
         self.assertEqual(force_bytes(extracted.manifest), VERY_LONG_MANIFEST)
 
-    def test_08_unicode(self):
+    def test_unicode(self):
         extracted = JarExtractor(get_file('test-jar-unicode.zip'),
                                  omit_signature_sections=False)
         self.assertEqual(
             force_bytes(extracted.manifest).decode('utf-8'), UNICODE_MANIFEST)
 
-    def test_09_serial_number_extraction(self):
+    def test_serial_number_extraction(self):
         with open(get_file('zigbert.test.pkcs7.der'), 'rb') as f:
             serialno = get_signature_serial_number(f.read())
         # Signature occured on Thursday, January 22nd 2015 at 11:02:22am PST
@@ -177,7 +177,12 @@ class SigningTest(unittest.TestCase):
         # by 1000 to get a (hopefully) truly unique serial number
         self.assertEqual(1421953342960, serialno)
 
-    def test_10_resigning_manifest_exclusions(self):
+    def test_serial_number_extraction(self):
+        with open(get_file('mozilla-generated-by-openssl.pkcs7.der'), 'rb') as f:
+            serialno = get_signature_serial_number(f.read())
+        self.assertEqual(1498181554500, serialno)
+
+    def test_resigning_manifest_exclusions(self):
         # This zip contains META-INF/manifest.mf, META-INF/zigbert.sf, and
         # META-INF/zigbert.rsa in addition to the contents of the basic test
         # archive test-jar.zip
@@ -185,7 +190,7 @@ class SigningTest(unittest.TestCase):
                                  omit_signature_sections=True)
         self.assertEqual(force_bytes(extracted.manifest), MANIFEST)
 
-    def test_11_make_signed(self):
+    def test_make_signed(self):
         extracted = JarExtractor(get_file('test-jar.zip'),
                                  omit_signature_sections=True)
         # Not a valid signature but a PKCS7 data blob, at least
@@ -215,7 +220,7 @@ class SigningTest(unittest.TestCase):
         signed = JarExtractor(signed_file, omit_signature_sections=True)
         self.assertEqual(force_bytes(extracted.manifest), force_bytes(signed.manifest))
 
-    def test_11_make_signed_default_sigpath(self):
+    def test_make_signed_default_sigpath(self):
         extracted = JarExtractor(get_file('test-jar.zip'),
                                  omit_signature_sections=True)
         # Not a valid signature but a PKCS7 data blob, at least
@@ -244,7 +249,7 @@ class SigningTest(unittest.TestCase):
         self.assertEqual(force_bytes(extracted.manifest), force_bytes(signed.manifest))
 
     # See https://bugzil.la/1169574
-    def test_12_metainf_case_sensitivity(self):
+    def test_metainf_case_sensitivity(self):
         self.assertTrue(ignore_certain_metainf_files('meta-inf/manifest.mf'))
         self.assertTrue(ignore_certain_metainf_files('MeTa-InF/MaNiFeSt.Mf'))
         self.assertFalse(ignore_certain_metainf_files('meta-inf/pickles.mf'))
