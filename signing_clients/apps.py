@@ -243,7 +243,6 @@ class Manifest(list):
         ).decode('utf-8')
 
 
-@python_2_unicode_compatible
 class Signature(Manifest):
     omit_individual_sections = True
     digest_manifests = {}
