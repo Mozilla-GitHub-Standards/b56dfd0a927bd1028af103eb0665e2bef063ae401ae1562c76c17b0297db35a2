@@ -17,6 +17,9 @@ from six.moves import cStringIO as StringIO
 
 from asn1crypto import cms, core as asn1core
 
+from . import constants
+
+
 # Patch asn1crypto teletex codec to actually be latin 1 (iso-8859-1)
 # See https://github.com/wbond/asn1crypto/issues/60 and
 # https://github.com/mozilla/signing-clients/issues/23 for more details
@@ -367,19 +370,47 @@ class JarExtractor(object):
                     zout.writestr('META-INF/ids.json', self.ids)
 
 
-# This is basically a dumbed down version of M2Crypto.SMIME.load_pkcs7 but
-# that reads DER instead of only PEM formatted files
-def get_signature_serial_number(pkcs7):
-    """
-    Extracts the serial number out of a DER formatted, detached PKCS7
-    signature buffer
-    """
-    content = cms.ContentInfo.load(pkcs7)['content'].native
+class SignatureInfo(object):
 
-    # Fetch the certificate stack that is the list of signers
-    # Since there should only be one in this use case, take the zeroth
-    # cert in the stack and return its serial number
-    try:
-        return content['signer_infos'][0]['sid']['serial_number']
-    except (IndexError, KeyError):
-        return None
+    def __init__(self, pkcs7):
+        if isinstance(pkcs7, SignatureInfo):
+            # Allow passing around SignatureInfo objects to avoid
+            # re-reading the signature every time.
+            self.content = pkcs7.content
+        else:
+            self.content = cms.ContentInfo.load(pkcs7).native['content']
+
+    @property
+    def signer_serial_number(self):
+        return self.signer_info['sid']['serial_number']
+
+    @property
+    def signer_info(self):
+        """There should be only one SignerInfo for add-ons,
+        nss doesn't support multiples
+
+        See ttps://bugzilla.mozilla.org/show_bug.cgi?id=1357815#c4 for a few
+        more details.
+        """
+        return self.content['signer_infos'][0]
+
+    @property
+    def issuer(self):
+        return self.signer_info['sid']['issuer']
+
+    @property
+    def signer_certificate(self):
+        for certificate in self.content['certificates']:
+            info = certificate['tbs_certificate']
+            if info['issuer'] == self.issuer and info['serial_number'] == self.signer_serial_number:
+                return info
+
+
+def get_signer_serial_number(pkcs7):
+    """Return the signer serial number of the signature."""
+    return SignatureInfo(pkcs7).signer_serial_number
+
+
+def get_signer_organizational_unit_name(pkcs7):
+    """Return the OU of the signer certificate."""
+    return SignatureInfo(pkcs7).signer_certificate['subject']['organizational_unit_name']

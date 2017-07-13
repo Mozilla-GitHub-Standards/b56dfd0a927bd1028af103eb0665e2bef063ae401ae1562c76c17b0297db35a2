@@ -9,8 +9,12 @@ import os.path
 import shutil
 import tempfile
 import unittest
+import collections
+import datetime
 
 from hashlib import sha1
+import asn1crypto
+from asn1crypto.util import timezone
 
 from signing_clients.apps import (
     force_bytes,
@@ -19,9 +23,13 @@ from signing_clients.apps import (
     ParsingError,
     ZipFile,
     file_key,
-    get_signature_serial_number,
-    ignore_certain_metainf_files
+    get_signer_serial_number,
+    ignore_certain_metainf_files,
+    get_signer_organizational_unit_name,
+    SignatureInfo
 )
+
+from signing_clients import constants
 
 
 MANIFEST_BODY = b"""Name: test-file
@@ -171,7 +179,7 @@ class SigningTest(unittest.TestCase):
 
     def test_serial_number_extraction(self):
         with open(get_file('zigbert.test.pkcs7.der'), 'rb') as f:
-            serialno = get_signature_serial_number(f.read())
+            serialno = get_signer_serial_number(f.read())
         # Signature occured on Thursday, January 22nd 2015 at 11:02:22am PST
         # The signing service returns a Python time.time() value multiplied
         # by 1000 to get a (hopefully) truly unique serial number
@@ -179,7 +187,7 @@ class SigningTest(unittest.TestCase):
 
     def test_serial_number_extraction(self):
         with open(get_file('mozilla-generated-by-openssl.pkcs7.der'), 'rb') as f:
-            serialno = get_signature_serial_number(f.read())
+            serialno = get_signer_serial_number(f.read())
         self.assertEqual(1498181554500, serialno)
 
     def test_resigning_manifest_exclusions(self):
@@ -254,3 +262,119 @@ class SigningTest(unittest.TestCase):
         self.assertTrue(ignore_certain_metainf_files('MeTa-InF/MaNiFeSt.Mf'))
         self.assertFalse(ignore_certain_metainf_files('meta-inf/pickles.mf'))
 
+    def test_get_signer_organizational_unit_name(self):
+        with open(get_file('mozilla-generated-by-openssl.pkcs7.der'), 'rb') as f:
+            addon_type = get_signer_organizational_unit_name(f.read())
+
+        self.assertEqual(addon_type, 'Testing')
+
+        with open(get_file('webextension_signed.rsa'), 'rb') as f:
+            addon_type = get_signer_organizational_unit_name(f.read())
+
+        self.assertEqual(addon_type, 'Mozilla Extensions')
+
+        with open(get_file('zigbert.test.pkcs7.der'), 'rb') as f:
+            addon_type = get_signer_organizational_unit_name(f.read())
+
+        self.assertEqual(addon_type, 'Mozilla Addons Dev')
+
+
+class TestSignatureInfo(unittest.TestCase):
+
+    def setUp(self):
+        with open(get_file('mozilla-generated-by-openssl.pkcs7.der'), 'rb') as f:
+            self.pkcs7 = f.read()
+
+        self.info = SignatureInfo(self.pkcs7)
+
+    def test_loading_reading_string(self):
+        info = SignatureInfo(self.pkcs7)
+        self.assertTrue(isinstance(info.content, collections.OrderedDict))
+
+    def test_loading_pass_signature_info_instance(self):
+        info = SignatureInfo(self.pkcs7)
+        self.assertTrue(isinstance(info.content, collections.OrderedDict))
+
+        info2 = SignatureInfo(info)
+
+        self.assertTrue(isinstance(info2.content, collections.OrderedDict))
+        self.assertEqual(info2.content, info.content)
+
+    def test_signer_serial_number(self):
+        self.assertEqual(self.info.signer_serial_number, 1498181554500)
+
+    def test_issuer(self):
+        self.assertEqual(self.info.issuer, collections.OrderedDict([
+            ('country_name', 'US'),
+            ('state_or_province_name', 'CA'),
+            ('locality_name', 'Mountain View'),
+            ('organization_name', 'Addons Test Signing'),
+            ('common_name', 'test.addons.signing.root.ca'),
+            ('email_address', 'opsec+stagerootaddons@mozilla.com')
+        ]))
+
+    def test_signer_certificate(self):
+        self.assertEqual(
+            self.info.signer_certificate['serial_number'],
+            self.info.signer_serial_number)
+        self.assertEqual(self.info.signer_certificate['issuer'], self.info.issuer)
+
+        self.assertEqual(self.info.signer_certificate, collections.OrderedDict([
+            ('version', 'v3'),
+            ('serial_number', 1498181554500),
+            ('signature', collections.OrderedDict([
+            ('algorithm', 'sha256_rsa'), ('parameters', None)])),
+            ('issuer', collections.OrderedDict([
+                ('country_name', 'US'),
+                ('state_or_province_name', 'CA'),
+                ('locality_name', 'Mountain View'),
+                ('organization_name', 'Addons Test Signing'),
+                ('common_name', 'test.addons.signing.root.ca'),
+                ('email_address', 'opsec+stagerootaddons@mozilla.com')])),
+            ('validity', collections.OrderedDict([
+                ('not_before',
+                 datetime.datetime(2017, 6, 23, 1, 32, 34, tzinfo=timezone.utc)),
+                ('not_after',
+                 datetime.datetime(2027, 6, 21, 1, 32, 34, tzinfo=timezone.utc))])),
+            ('subject', collections.OrderedDict([
+                ('organizational_unit_name', 'Testing'),
+                ('country_name', 'US'),
+                ('locality_name', 'Mountain View'),
+                ('organization_name', 'Addons Testing'),
+                ('state_or_province_name', 'CA'),
+                ('common_name', '{02b860db-e71f-48d2-a5a0-82072a93d33c}')])),
+            ('subject_public_key_info', collections.OrderedDict([
+                ('algorithm', collections.OrderedDict([
+                    ('algorithm', 'rsa'),
+                    ('parameters', None)])),
+                    ('public_key', collections.OrderedDict([
+                        ('modulus', int(
+                            '85289209018591781267198931558814435907521407777661'
+                            '50749316736213617395458578680335589192171418852036'
+                            '79278813048882998104120530700223207250951695884439'
+                            '20772452388935409377024686932620042402964287828106'
+                            '51257320080972660594945900464995547687116064792520'
+                            '10385231846333656801523388692257373069803424678966'
+                            '83558316878945090150671487395382420988138292553386'
+                            '65273893489909596214808207811839117255018821125538'
+                            '88010045768747055709235990054867405484806043609964'
+                            '46844151945633093802308152276459710592644539761011'
+                            '95743982561110649516741370965629194907895538590306'
+                            '29899529219665410153860752870947521013079820756069'
+                            '47104737107240593827799410733495909560358275915879'
+                            '55064950558358425436354620230911526069861662920050'
+                            '43124539276872288437450042840027281372269967539939'
+                            '24111213120065958637042429018593980801963496240784'
+                            '12170983502746046961830237201163411151902047596357'
+                            '52875610569157058411595354595985036610666909234931'
+                            '24897289875099542550941258245633054592232417696315'
+                            '40182071794766323211615139265042704991415186206585'
+                            '75885408887756385761663648099801365729955339334103'
+                            '60468108188015261735738849468668895508239573547213'
+                            '28312488126574859733988724870493942605656816541143'
+                            '61628373225003401044258905283594542783785817504173'
+                            '841847040037917474056678747905247')),
+                        ('public_exponent', 65537)]))])),
+            ('issuer_unique_id', None),
+            ('subject_unique_id', None),
+            ('extensions', None)]))
