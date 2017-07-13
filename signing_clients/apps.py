@@ -246,6 +246,7 @@ class Manifest(list):
         ).decode('utf-8')
 
 
+@python_2_unicode_compatible
 class Signature(Manifest):
     omit_individual_sections = True
     digest_manifests = {}
@@ -269,7 +270,11 @@ class Signature(Manifest):
     def __str__(self):
         if self.omit_individual_sections:
             return (self.header + b"\n").decode('utf-8')
-        return super(Signature, self).__str__()
+
+        if PY3:
+            return Manifest.__str__(self)
+        else:
+            return Manifest.__unicode__(self)
 
 
 class JarExtractor(object):
@@ -281,8 +286,6 @@ class JarExtractor(object):
 
     def __init__(self, path, outpath=None, ids=None,
                  omit_signature_sections=False, extra_newlines=False):
-        """
-        """
         self.inpath = path
         self.outpath = outpath
         self._digests = []
