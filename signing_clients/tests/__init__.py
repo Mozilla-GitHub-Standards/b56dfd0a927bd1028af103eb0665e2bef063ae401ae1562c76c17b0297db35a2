@@ -46,30 +46,10 @@ SHA1-Digest: 4QzlrC8QyhQW1T0/Nay5kRr3gVo=
 MANIFEST = b"Manifest-Version: 1.0\n\n" + MANIFEST_BODY
 
 SIGNATURE = b"""Signature-Version: 1.0
-MD5-Digest-Manifest: dughN2Z8uP3eXIZm7GVpjA==
-SHA1-Digest-Manifest: rnDwKcEuRYqy57DFyzwK/Luul+0=
-"""
-
-SIGNATURES_BODY = b"""Name: test-file
-Digest-Algorithms: MD5 SHA1
-MD5-Digest: jf86A0RSFH3oREWLkRAoIg==
-SHA1-Digest: 9O+Do4sVlAh82x9ZYu1GbtyNToA=
-
-Name: test-dir/nested-test-file
-Digest-Algorithms: MD5 SHA1
-MD5-Digest: YHTqD4SINsoZngWvbGIhAA==
-SHA1-Digest: lys436ZGYKrHY6n57Iy/EyF5FuI=
-"""
-
-SIGNATURES = SIGNATURE + b"\n" + SIGNATURES_BODY
-
-EXTRA_NEWLINE_SIGNATURE = b"""Signature-Version: 1.0
 MD5-Digest-Manifest: A3IkNTcP2L6JzwQzkp+6Kg==
 SHA1-Digest-Manifest: xQKf9C1JcIjfZoFxTWt3pzW2KYI=
 
 """
-
-EXTRA_NEWLINE_SIGNATURES = EXTRA_NEWLINE_SIGNATURE + b"\n" + SIGNATURES_BODY + b"\n"  # noqa
 
 CONTINUED_MANIFEST = MANIFEST + b"""
 Name: test-dir/nested-test-dir/nested-test-dir/nested-test-dir/nested-te
@@ -104,6 +84,7 @@ Name: test-dir/nested-test-dir-0/nested-test-dir-1/nested-test-dir-2/lon
 Digest-Algorithms: MD5 SHA1
 MD5-Digest: 9bU/UEp83EbO/DWN3Ds/cg==
 SHA1-Digest: lIbbwE8/2LFOD00+bJ/Wu80lR/I=
+
 """
 
 # Test for Unicode
@@ -129,53 +110,39 @@ class SigningTest(unittest.TestCase):
     def tmp_file(self, fname):
         return os.path.join(self.tmpdir, fname)
 
-    def _extract(self, omit=False, newlines=False):
-        return JarExtractor(get_file('test-jar.zip'),
-                            omit_signature_sections=omit,
-                            extra_newlines=newlines)
+    def _extract(self):
+        return JarExtractor(get_file('test-jar.zip'))
 
     def test_extractor(self):
         self.assertTrue(isinstance(self._extract(), JarExtractor))
 
     def test_manifest(self):
         extracted = self._extract()
-        self.assertEqual(force_bytes(extracted.manifest), MANIFEST)
-        extracted = self._extract(newlines=True)
         self.assertEqual(force_bytes(extracted.manifest), MANIFEST + b"\n")
 
     def test_signature(self):
         extracted = self._extract()
         self.assertEqual(force_bytes(extracted.signature), SIGNATURE)
-        extracted = self._extract(newlines=True)
-        self.assertEqual(force_bytes(extracted.signature), EXTRA_NEWLINE_SIGNATURE)
 
     def test_signatures(self):
         extracted = self._extract()
-        self.assertEqual(force_bytes(extracted.signatures), SIGNATURES)
-        extracted = self._extract(newlines=True)
-        self.assertEqual(force_bytes(extracted.signatures), EXTRA_NEWLINE_SIGNATURES)
-
-    def test_signatures_omit(self):
-        extracted = self._extract(True)
         self.assertEqual(force_bytes(extracted.signatures), SIGNATURE)
 
     def test_continuation(self):
         manifest = Manifest.parse(CONTINUED_MANIFEST)
-        self.assertEqual(force_bytes(manifest), CONTINUED_MANIFEST)
+        self.assertEqual(force_bytes(manifest), CONTINUED_MANIFEST + b"\n")
 
     def test_line_too_long(self):
         self.assertRaises(ParsingError, Manifest.parse, BROKEN_MANIFEST)
 
     def test_wrapping(self):
-        extracted = JarExtractor(get_file('test-jar-long-path.zip'),
-                                 omit_signature_sections=False)
+        extracted = JarExtractor(get_file('test-jar-long-path.zip'))
         self.assertEqual(force_bytes(extracted.manifest), VERY_LONG_MANIFEST)
 
     def test_unicode(self):
-        extracted = JarExtractor(get_file('test-jar-unicode.zip'),
-                                 omit_signature_sections=False)
+        extracted = JarExtractor(get_file('test-jar-unicode.zip'))
         self.assertEqual(
-            force_bytes(extracted.manifest).decode('utf-8'), UNICODE_MANIFEST)
+            force_bytes(extracted.manifest).decode('utf-8'), UNICODE_MANIFEST + b"\n")
 
     def test_serial_number_extraction(self):
         with open(get_file('zigbert.test.pkcs7.der'), 'rb') as f:
@@ -194,13 +161,11 @@ class SigningTest(unittest.TestCase):
         # This zip contains META-INF/manifest.mf, META-INF/zigbert.sf, and
         # META-INF/zigbert.rsa in addition to the contents of the basic test
         # archive test-jar.zip
-        extracted = JarExtractor(get_file('test-jar-meta-inf-exclude.zip'),
-                                 omit_signature_sections=True)
-        self.assertEqual(force_bytes(extracted.manifest), MANIFEST)
+        extracted = JarExtractor(get_file('test-jar-meta-inf-exclude.zip'))
+        self.assertEqual(force_bytes(extracted.manifest), MANIFEST + b"\n")
 
     def test_make_signed(self):
-        extracted = JarExtractor(get_file('test-jar.zip'),
-                                 omit_signature_sections=True)
+        extracted = JarExtractor(get_file('test-jar.zip'))
         # Not a valid signature but a PKCS7 data blob, at least
         with open(get_file('zigbert.test.pkcs7.der'), 'rb') as f:
             signature = f.read()
@@ -225,12 +190,11 @@ class SigningTest(unittest.TestCase):
             self.assertEqual(signature_digest.hexdigest(),
                              zip_sig_digest.hexdigest())
         # And make sure the manifest is correct
-        signed = JarExtractor(signed_file, omit_signature_sections=True)
+        signed = JarExtractor(signed_file)
         self.assertEqual(force_bytes(extracted.manifest), force_bytes(signed.manifest))
 
     def test_make_signed_default_sigpath(self):
-        extracted = JarExtractor(get_file('test-jar.zip'),
-                                 omit_signature_sections=True)
+        extracted = JarExtractor(get_file('test-jar.zip'))
         # Not a valid signature but a PKCS7 data blob, at least
         with open(get_file('zigbert.test.pkcs7.der'), 'rb') as f:
             signature = f.read()
@@ -253,7 +217,7 @@ class SigningTest(unittest.TestCase):
             self.assertEqual(signature_digest.hexdigest(),
                              zip_sig_digest.hexdigest())
 
-        signed = JarExtractor(signed_file, omit_signature_sections=True)
+        signed = JarExtractor(signed_file)
         self.assertEqual(force_bytes(extracted.manifest), force_bytes(signed.manifest))
 
     # See https://bugzil.la/1169574

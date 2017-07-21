@@ -152,7 +152,6 @@ class Manifest(list):
     # Older versions of Firefox crash if a JAR manifest style file doesn't
     # end in a blank line("\n\n").  For more details see:
     # https://bugzilla.mozilla.org/show_bug.cgi?id=1158467
-    extra_newline = False
 
     def __init__(self, *args, **kwargs):
         super(Manifest, self).__init__(*args)
@@ -239,8 +238,7 @@ class Manifest(list):
 
     def __str__(self):
         segments = [self.header, b"", self.body]
-        if self.extra_newline:
-            segments.append(b"")
+        segments.append(b"")
         return (b"\n".join(
             force_bytes(item) for item in segments)
         ).decode('utf-8')
@@ -248,7 +246,6 @@ class Manifest(list):
 
 @python_2_unicode_compatible
 class Signature(Manifest):
-    omit_individual_sections = True
     digest_manifests = {}
     filename = 'zigbert'
 
@@ -262,19 +259,11 @@ class Signature(Manifest):
     def header(self):
         segments = [force_bytes(super(Signature, self).header)]
         segments.extend(self.digest_manifest)
-        if self.extra_newline:
-            segments.append(b"")
+        segments.append(b"")
         return b"\n".join(force_bytes(item) for item in segments)
 
-    # So we can omit the individual signature sections
     def __str__(self):
-        if self.omit_individual_sections:
-            return (self.header + b"\n").decode('utf-8')
-
-        if PY3:
-            return Manifest.__str__(self)
-        else:
-            return Manifest.__unicode__(self)
+        return (self.header + b"\n").decode('utf-8')
 
 
 class JarExtractor(object):
@@ -284,13 +273,10 @@ class JarExtractor(object):
     Can also generate a new signed archive, if given a PKCS#7 signature
     """
 
-    def __init__(self, path, outpath=None, ids=None,
-                 omit_signature_sections=False, extra_newlines=False):
+    def __init__(self, path, outpath=None, ids=None):
         self.inpath = path
         self.outpath = outpath
         self._digests = []
-        self.omit_sections = omit_signature_sections
-        self.extra_newlines = extra_newlines
         self._manifest = None
         self._sig = None
         self.ids = ids
@@ -319,8 +305,7 @@ class JarExtractor(object):
     @property
     def manifest(self):
         if not self._manifest:
-            self._manifest = Manifest(self._digests,
-                                      extra_newline=self.extra_newlines)
+            self._manifest = Manifest(self._digests)
         return self._manifest
 
     @property
@@ -330,9 +315,7 @@ class JarExtractor(object):
         # signatures here
         if not self._sig:
             self._sig = Signature([self._sign(f) for f in self._digests],
-                                  digest_manifests=_digest(force_bytes(self.manifest)),
-                                  omit_individual_sections=self.omit_sections,
-                                  extra_newline=self.extra_newlines)
+                                  digest_manifests=_digest(force_bytes(self.manifest)))
         return self._sig
 
     @property
