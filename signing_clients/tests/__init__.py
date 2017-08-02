@@ -142,7 +142,7 @@ class SigningTest(unittest.TestCase):
     def test_unicode(self):
         extracted = JarExtractor(get_file('test-jar-unicode.zip'))
         self.assertEqual(
-            force_bytes(extracted.manifest).decode('utf-8'), UNICODE_MANIFEST + b"\n")
+            force_bytes(extracted.manifest).decode('utf-8'), UNICODE_MANIFEST + u"\n")
 
     def test_serial_number_extraction(self):
         with open(get_file('zigbert.test.pkcs7.der'), 'rb') as f:
