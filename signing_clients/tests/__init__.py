@@ -222,6 +222,22 @@ class SigningTest(unittest.TestCase):
         signed = JarExtractor(signed_file)
         self.assertEqual(force_bytes(extracted.manifest), force_bytes(signed.manifest))
 
+    def test_make_signed_refuses_weird_sigpath(self):
+        extracted = JarExtractor(get_file('test-jar.zip'))
+
+        # Hardcode the parameters we don't care about in this test
+        signed_manifest = 'abc'
+        signature = 'signed: abc'
+        outpath = 'signed-jar.zip'
+
+        def make_signed(sigpath):
+            return extracted.make_signed(signed_manifest, signature,
+                                         outpath, sigpath)
+
+        self.assertRaises(ValueError, make_signed, 'subdirectory/filename')
+        self.assertRaises(ValueError, make_signed, 'filename.abc')
+
+
     # See https://bugzil.la/1169574
     def test_metainf_case_sensitivity(self):
         self.assertTrue(ignore_certain_metainf_files('meta-inf/manifest.mf'))

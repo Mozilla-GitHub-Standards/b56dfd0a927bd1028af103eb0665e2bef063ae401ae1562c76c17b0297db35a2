@@ -330,9 +330,13 @@ class JarExtractor(object):
         if os.path.exists(outpath):
             raise IOError("File already exists: %s" % outpath)
 
-        # Normalize to a simple filename with no extension or prefixed
-        # directory
-        sigpath = os.path.splitext(os.path.basename(sigpath))[0]
+        # Enforce a simple filename with no extension (because we use
+        # the sigpath for both signed contents and signature) or prefixed
+        # directory (because we don't handle it and want it to be just
+        # in META-INF)
+        if os.path.basename(sigpath) != sigpath or '.' in sigpath:
+            raise ValueError("sigpath should be a basename with no extension")
+
         sigpath = os.path.join('META-INF', sigpath)
 
         with ZipFile(self.inpath, 'r') as zin:
