@@ -323,14 +323,13 @@ class JarExtractor(object):
         # section signatures
         return self.signatures.header + b"\n"
 
-    def make_signed(self, signature, outpath, sigpath=None):
+    def make_signed(self, signature, outpath, sigpath):
         if not outpath:
             raise IOError("No output file specified")
 
         if os.path.exists(outpath):
             raise IOError("File already exists: %s" % outpath)
 
-        sigpath = sigpath or self.signatures.filename
         # Normalize to a simple filename with no extension or prefixed
         # directory
         sigpath = os.path.splitext(os.path.basename(sigpath))[0]
