@@ -323,7 +323,7 @@ class JarExtractor(object):
         # section signatures
         return self.signatures.header + b"\n"
 
-    def make_signed(self, signature, outpath, sigpath):
+    def make_signed(self, signed_manifest, signature, outpath, sigpath):
         if not outpath:
             raise IOError("No output file specified")
 
@@ -348,7 +348,7 @@ class JarExtractor(object):
                         continue
                     zout.writestr(f, zin.read(f.filename))
                 zout.writestr("META-INF/manifest.mf", str(self.manifest))
-                zout.writestr("%s.sf" % sigpath, str(self.signatures))
+                zout.writestr("%s.sf" % sigpath, signed_manifest)
                 if self.ids is not None:
                     zout.writestr('META-INF/ids.json', self.ids)
 

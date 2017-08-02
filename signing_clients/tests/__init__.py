@@ -174,7 +174,8 @@ class SigningTest(unittest.TestCase):
 
         signed_file = self.tmp_file('test-jar-signed.zip')
         sigpath = 'zoidberg'
-        extracted.make_signed(signature, signed_file, sigpath=sigpath)
+        extracted.make_signed(str(extracted.signatures), signature,
+                              signed_file, sigpath)
         # Now verify the signed zipfile's contents
         with ZipFile(signed_file, 'r') as zin:
             # sorted(...) should result in the following order:
@@ -202,7 +203,8 @@ class SigningTest(unittest.TestCase):
             signature_digest.update(signature)
 
         signed_file = self.tmp_file('test-jar-signed.zip')
-        extracted.make_signed(signature, signed_file)
+        extracted.make_signed(str(extracted.signatures), signature,
+                              signed_file, 'zigbert')
 
         with ZipFile(signed_file, 'r') as zin:
             files = ['test-file', 'META-INF/manifest.mf',
