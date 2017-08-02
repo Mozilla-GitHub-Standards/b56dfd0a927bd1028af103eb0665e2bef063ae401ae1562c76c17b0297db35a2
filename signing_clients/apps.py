@@ -273,9 +273,8 @@ class JarExtractor(object):
     Can also generate a new signed archive, if given a PKCS#7 signature
     """
 
-    def __init__(self, path, outpath=None, ids=None):
+    def __init__(self, path, ids=None):
         self.inpath = path
-        self.outpath = outpath
         self._digests = []
         self._manifest = None
         self._sig = None
@@ -324,8 +323,7 @@ class JarExtractor(object):
         # section signatures
         return self.signatures.header + b"\n"
 
-    def make_signed(self, signature, outpath=None, sigpath=None):
-        outpath = outpath or self.outpath
+    def make_signed(self, signature, outpath, sigpath=None):
         if not outpath:
             raise IOError("No output file specified")
 
