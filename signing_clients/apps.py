@@ -247,7 +247,6 @@ class Manifest(list):
 @python_2_unicode_compatible
 class Signature(Manifest):
     digest_manifests = {}
-    filename = 'zigbert'
 
     @property
     def digest_manifest(self):
