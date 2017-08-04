@@ -323,9 +323,6 @@ class JarExtractor(object):
         return self.signatures.header + b"\n"
 
     def make_signed(self, signed_manifest, signature, outpath, sigpath):
-        if not outpath:
-            raise IOError("No output file specified")
-
         if os.path.exists(outpath):
             raise IOError("File already exists: %s" % outpath)
 
