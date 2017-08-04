@@ -215,7 +215,7 @@ class Manifest(list):
                 item['name'] = value
                 continue
             elif 'digest-algorithms' == header:
-                item['algos'] = tuple(re.split('\s*', value.lower()))
+                item['algos'] = tuple(re.split('\s+', value.lower()))
                 continue
             elif '-digest' == header[-7:]:
                 if not 'digests' in item:
