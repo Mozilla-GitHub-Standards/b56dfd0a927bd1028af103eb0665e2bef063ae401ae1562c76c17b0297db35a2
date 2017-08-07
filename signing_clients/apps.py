@@ -247,7 +247,6 @@ class Manifest(list):
 @python_2_unicode_compatible
 class Signature(Manifest):
     digest_manifests = {}
-    filename = 'zigbert'
 
     @property
     def digest_manifest(self):
@@ -273,9 +272,8 @@ class JarExtractor(object):
     Can also generate a new signed archive, if given a PKCS#7 signature
     """
 
-    def __init__(self, path, outpath=None, ids=None):
+    def __init__(self, path, ids=None):
         self.inpath = path
-        self.outpath = outpath
         self._digests = []
         self._manifest = None
         self._sig = None
@@ -324,18 +322,17 @@ class JarExtractor(object):
         # section signatures
         return self.signatures.header + b"\n"
 
-    def make_signed(self, signature, outpath=None, sigpath=None):
-        outpath = outpath or self.outpath
-        if not outpath:
-            raise IOError("No output file specified")
-
+    def make_signed(self, signed_manifest, signature, outpath, sigpath):
         if os.path.exists(outpath):
             raise IOError("File already exists: %s" % outpath)
 
-        sigpath = sigpath or self.signatures.filename
-        # Normalize to a simple filename with no extension or prefixed
-        # directory
-        sigpath = os.path.splitext(os.path.basename(sigpath))[0]
+        # Enforce a simple filename with no extension (because we use
+        # the sigpath for both signed contents and signature) or prefixed
+        # directory (because we don't handle it and want it to be just
+        # in META-INF)
+        if os.path.basename(sigpath) != sigpath or '.' in sigpath:
+            raise ValueError("sigpath should be a basename with no extension")
+
         sigpath = os.path.join('META-INF', sigpath)
 
         with ZipFile(self.inpath, 'r') as zin:
@@ -351,7 +348,7 @@ class JarExtractor(object):
                         continue
                     zout.writestr(f, zin.read(f.filename))
                 zout.writestr("META-INF/manifest.mf", str(self.manifest))
-                zout.writestr("%s.sf" % sigpath, str(self.signatures))
+                zout.writestr("%s.sf" % sigpath, signed_manifest)
                 if self.ids is not None:
                     zout.writestr('META-INF/ids.json', self.ids)
 

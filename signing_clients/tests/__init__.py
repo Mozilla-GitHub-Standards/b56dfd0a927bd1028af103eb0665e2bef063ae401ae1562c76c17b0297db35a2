@@ -142,7 +142,7 @@ class SigningTest(unittest.TestCase):
     def test_unicode(self):
         extracted = JarExtractor(get_file('test-jar-unicode.zip'))
         self.assertEqual(
-            force_bytes(extracted.manifest).decode('utf-8'), UNICODE_MANIFEST + b"\n")
+            force_bytes(extracted.manifest).decode('utf-8'), UNICODE_MANIFEST + u"\n")
 
     def test_serial_number_extraction(self):
         with open(get_file('zigbert.test.pkcs7.der'), 'rb') as f:
@@ -174,7 +174,12 @@ class SigningTest(unittest.TestCase):
 
         signed_file = self.tmp_file('test-jar-signed.zip')
         sigpath = 'zoidberg'
-        extracted.make_signed(signature, signed_file, sigpath=sigpath)
+        extracted.make_signed(
+            signed_manifest=str(extracted.signatures),
+            signature=signature,
+            outpath=signed_file,
+            sigpath=sigpath
+        )
         # Now verify the signed zipfile's contents
         with ZipFile(signed_file, 'r') as zin:
             # sorted(...) should result in the following order:
@@ -202,7 +207,12 @@ class SigningTest(unittest.TestCase):
             signature_digest.update(signature)
 
         signed_file = self.tmp_file('test-jar-signed.zip')
-        extracted.make_signed(signature, signed_file)
+        extracted.make_signed(
+            signed_manifest=str(extracted.signatures),
+            signature=signature,
+            outpath=signed_file,
+            sigpath='zigbert'
+        )
 
         with ZipFile(signed_file, 'r') as zin:
             files = ['test-file', 'META-INF/manifest.mf',
@@ -219,6 +229,26 @@ class SigningTest(unittest.TestCase):
 
         signed = JarExtractor(signed_file)
         self.assertEqual(force_bytes(extracted.manifest), force_bytes(signed.manifest))
+
+    def test_make_signed_refuses_weird_sigpath(self):
+        extracted = JarExtractor(get_file('test-jar.zip'))
+
+        # Hardcode the parameters we don't care about in this test
+        signed_manifest = 'abc'
+        signature = 'signed: abc'
+        outpath = 'signed-jar.zip'
+
+        def make_signed(sigpath):
+            return extracted.make_signed(
+                signed_manifest=signed_manifest,
+                signature=signature,
+                outpath=outpath,
+                sigpath=sigpath
+            )
+
+        self.assertRaises(ValueError, make_signed, 'subdirectory/filename')
+        self.assertRaises(ValueError, make_signed, 'filename.abc')
+
 
     # See https://bugzil.la/1169574
     def test_metainf_case_sensitivity(self):
