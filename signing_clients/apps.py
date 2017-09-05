@@ -100,6 +100,22 @@ def file_key(filename):
     return (prio, os.path.split(filename.lower()))
 
 
+def manifest_header(type_name, version='1.0'):
+    """Returns a header, suitable for use in a manifest.
+
+    >>> manifest_header("signature")
+    "Signature-Version: 1.0"
+
+    :param type_name: The kind of manifest which needs a header:
+        "manifest", "signature".
+    :param version: The manifest version to encode in the header
+        (default: '1.0')
+    """
+    return u"%s-Version: %s" % (
+        type_name.title(),
+        version)
+
+
 def _digest(data):
     md5 = hashlib.md5()
     md5.update(force_bytes(data))
@@ -230,17 +246,11 @@ class Manifest(object):
         return klass(items)
 
     @property
-    def header(self):
-        return b"%s-Version: %s" % (
-            force_bytes(type(self).__name__.title()),
-            force_bytes(self.version))
-
-    @property
     def body(self):
         return b"\n".join([force_bytes(i) for i in self.sections])
 
     def __str__(self):
-        segments = [self.header, b"", self.body]
+        segments = [force_bytes(manifest_header('manifest')), b"", self.body]
         segments.append(b"")
         return (b"\n".join(
             force_bytes(item) for item in segments)
@@ -259,7 +269,7 @@ class Signature(Manifest):
 
     @property
     def header(self):
-        segments = [force_bytes(super(Signature, self).header)]
+        segments = [force_bytes(manifest_header('Signature'))]
         segments.extend(self.digest_manifest)
         segments.append(b"")
         return b"\n".join(force_bytes(item) for item in segments)
