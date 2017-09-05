@@ -122,11 +122,9 @@ class Section(object):
         # sensitive and should not be changed without reading through
         # http://docs.oracle.com/javase/7/docs/technotes/guides/jar/jar.html#JAR%20Manifest
         # thoroughly.
-        algos = b''
         order = list(self.digests.keys())
         order.sort()
-        for algo in order:
-            algos += b' %s' % force_bytes(algo.upper())
+        algos = ' '.join([algo.upper() for algo in order])
         entry = b''
         # The spec for zip files only supports extended ASCII and UTF-8
         # See http://www.pkware.com/documents/casestudies/APPNOTE.TXT
@@ -142,7 +140,7 @@ class Section(object):
             if name:
                 entry += b'\n '
         entry += b'\n'
-        entry += b'Digest-Algorithms:%s\n' % force_bytes(algos)
+        entry += b'Digest-Algorithms: %s\n' % force_bytes(algos)
         for algo in order:
             entry += b'%s-Digest: %s\n' % (force_bytes(algo.upper()),
                                            b64encode(self.digests[algo]))
