@@ -258,8 +258,10 @@ class Manifest(object):
 
 
 @python_2_unicode_compatible
-class Signature(Manifest):
-    digest_manifests = {}
+class Signature(object):
+    def __init__(self, digest_manifests):
+        super(Signature, self).__init__()
+        self.digest_manifests = digest_manifests
 
     @property
     def digest_manifest(self):
@@ -324,7 +326,7 @@ class JarExtractor(object):
         # signatures here
         if not self._sig:
             digest_manifests = _digest(force_bytes(self.manifest))
-            self._sig = Signature([], digest_manifests=digest_manifests)
+            self._sig = Signature(digest_manifests)
         return self._sig
 
     @property
