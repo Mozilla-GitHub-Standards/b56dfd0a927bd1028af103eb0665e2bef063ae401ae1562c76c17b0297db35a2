@@ -300,10 +300,6 @@ class JarExtractor(object):
             if ids:
                 mksection(ids, 'META-INF/ids.json')
 
-    def _sign(self, item):
-        digests = _digest(str(item))
-        return Section(item.name, digests=digests)
-
     @property
     def manifest(self):
         if not self._manifest:
@@ -317,8 +313,7 @@ class JarExtractor(object):
         # signatures here
         if not self._sig:
             digest_manifests = _digest(force_bytes(self.manifest))
-            self._sig = Signature([self._sign(f) for f in self._digests],
-                                  digest_manifests=digest_manifests)
+            self._sig = Signature([], digest_manifests=digest_manifests)
         return self._sig
 
     @property
