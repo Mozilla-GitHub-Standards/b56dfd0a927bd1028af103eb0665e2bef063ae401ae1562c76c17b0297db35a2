@@ -113,9 +113,8 @@ def _digest(data):
 class Section(object):
     __slots__ = ('name', 'algos', 'digests')
 
-    def __init__(self, name, algos=('md5', 'sha1'), digests={}):
+    def __init__(self, name, digests={}):
         self.name = name
-        self.algos = algos
         self.digests = digests
 
     def __str__(self):
@@ -186,6 +185,10 @@ class Manifest(list):
             # End of section
             if not line:
                 if item:
+                    algos = item.pop('algos')
+                    if algos is not None and set(algos) != set(item['digests'].keys()):
+                        raise ParsingError("Manifest parsing error: algos don't match "
+                                           "(%d)" % lineno)
                     items.append(Section(item.pop('name'), **item))
                     item = {}
                 header = ''
@@ -285,8 +288,7 @@ class JarExtractor(object):
 
         def mksection(data, fname):
             digests = _digest(data)
-            item = Section(fname, algos=tuple(digests.keys()),
-                           digests=digests)
+            item = Section(fname, digests=digests)
             self._digests.append(item)
 
         def zinfo_key(zinfo):
@@ -305,8 +307,7 @@ class JarExtractor(object):
 
     def _sign(self, item):
         digests = _digest(str(item))
-        return Section(item.name, algos=tuple(digests.keys()),
-                       digests=digests)
+        return Section(item.name, digests=digests)
 
     @property
     def manifest(self):
