@@ -17,8 +17,6 @@ from six.moves import cStringIO as StringIO
 
 from asn1crypto import cms, core as asn1core
 
-from . import constants
-
 
 # Patch asn1crypto teletex codec to actually be latin 1 (iso-8859-1)
 # See https://github.com/wbond/asn1crypto/issues/60 and
@@ -96,7 +94,8 @@ def file_key(filename):
         prio = 1
     elif filename in ["chrome.manifest", "icon.png", "icon64.png"]:
         prio = 2
-    elif filename in ["MPL", "GPL", "LGPL", "COPYING", "LICENSE", "license.txt"]:
+    elif filename in ["MPL", "GPL", "LGPL",
+                      "COPYING", "LICENSE", "license.txt"]:
         prio = 5
     return (prio, os.path.split(filename.lower()))
 
@@ -161,7 +160,6 @@ class Manifest(list):
 
     @classmethod
     def parse(klass, buf):
-        #version = None
         if hasattr(buf, 'readlines'):
             fest = buf
         else:
@@ -184,9 +182,10 @@ class Manifest(list):
             if not line:
                 if item:
                     algos = item.pop('algos')
-                    if algos is not None and set(algos) != set(item['digests'].keys()):
-                        raise ParsingError("Manifest parsing error: algos don't match "
-                                           "(%d)" % lineno)
+                    found_algos = set(item['digests'].keys())
+                    if algos is not None and set(algos) != found_algos:
+                        raise ParsingError("Manifest parsing error: algos "
+                                           "don't match (%d)" % lineno)
                     items.append(Section(item.pop('name'), **item))
                     item = {}
                 header = ''
@@ -207,8 +206,6 @@ class Manifest(list):
             value = match.group(2)
             if '-version' == header[-8:]:
                 # Not doing anything with these at the moment
-                #payload = header[:-8]
-                #version = value.strip()
                 pass
             elif '-digest-manifest' == header[-16:]:
                 if 'digest_manifests' not in kwargs:
@@ -223,7 +220,7 @@ class Manifest(list):
                 item['algos'] = tuple(re.split('\s+', value.lower()))
                 continue
             elif '-digest' == header[-7:]:
-                if not 'digests' in item:
+                if 'digests' not in item:
                     item['digests'] = {}
                 item['digests'][header[:-7]] = b64decode(value)
                 continue
@@ -319,8 +316,9 @@ class JarExtractor(object):
         # sections of the the META-INF/manifest.mf file.  So we generate those
         # signatures here
         if not self._sig:
+            digest_manifests = _digest(force_bytes(self.manifest))
             self._sig = Signature([self._sign(f) for f in self._digests],
-                                  digest_manifests=_digest(force_bytes(self.manifest)))
+                                  digest_manifests=digest_manifests)
         return self._sig
 
     @property
@@ -392,7 +390,8 @@ class SignatureInfo(object):
     def signer_certificate(self):
         for certificate in self.content['certificates']:
             info = certificate['tbs_certificate']
-            if info['issuer'] == self.issuer and info['serial_number'] == self.signer_serial_number:
+            if info['issuer'] == self.issuer and \
+               info['serial_number'] == self.signer_serial_number:
                 return info
 
 
@@ -403,4 +402,5 @@ def get_signer_serial_number(pkcs7):
 
 def get_signer_organizational_unit_name(pkcs7):
     """Return the OU of the signer certificate."""
-    return SignatureInfo(pkcs7).signer_certificate['subject']['organizational_unit_name']
+    cert = SignatureInfo(pkcs7).signer_certificate
+    return cert['subject']['organizational_unit_name']
