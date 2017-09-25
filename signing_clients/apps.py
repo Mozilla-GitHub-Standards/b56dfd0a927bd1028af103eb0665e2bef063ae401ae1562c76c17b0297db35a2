@@ -201,8 +201,11 @@ class Manifest(object):
                     algos = item.pop('algos')
                     found_algos = set(item['digests'].keys())
                     if algos is not None and set(algos) != found_algos:
-                        raise ParsingError("Manifest parsing error: algos "
-                                           "don't match (%d)" % lineno)
+                        error_msg = (
+                            "Manifest parsing error: saw algos {} despite "
+                            "only listing {} (line {})").format(
+                                found_algos, set(algos), lineno)
+                        raise ParsingError(error_msg)
                     items.append(Section(item.pop('name'), **item))
                     item = {}
                 header = ''
