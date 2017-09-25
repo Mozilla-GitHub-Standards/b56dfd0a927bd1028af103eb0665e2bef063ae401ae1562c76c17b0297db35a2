@@ -111,9 +111,7 @@ def manifest_header(type_name, version='1.0'):
     :param version: The manifest version to encode in the header
         (default: '1.0')
     """
-    return u"%s-Version: %s" % (
-        type_name.title(),
-        version)
+    return u"{}-Version: {}".format(type_name.title(), version)
 
 
 def _digest(data):
