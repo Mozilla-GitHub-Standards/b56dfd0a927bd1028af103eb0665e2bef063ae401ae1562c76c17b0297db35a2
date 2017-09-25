@@ -128,9 +128,9 @@ def _digest(data):
 class Section(object):
     __slots__ = ('name', 'algos', 'digests')
 
-    def __init__(self, name, digests={}):
+    def __init__(self, name, digests=None):
         self.name = name
-        self.digests = digests
+        self.digests = digests or {}
 
     def __str__(self):
         # Important thing to note: placement of newlines in these strings is
