@@ -32,6 +32,9 @@ headers_re = re.compile(
 continuation_re = re.compile(r"""^ (.*)""", re.I)
 directory_re = re.compile(r"[\\/]$")
 
+LICENSE_FILENAMES = ["MPL", "GPL", "LGPL",
+                     "COPYING", "LICENSE", "license.txt"]
+
 
 # partially copied from Django
 def force_bytes(s, encoding='utf-8', errors='strict'):
@@ -94,8 +97,7 @@ def file_key(filename):
         prio = 1
     elif filename in ["chrome.manifest", "icon.png", "icon64.png"]:
         prio = 2
-    elif filename in ["MPL", "GPL", "LGPL",
-                      "COPYING", "LICENSE", "license.txt"]:
+    elif filename in LICENSE_FILENAMES:
         prio = 5
     return (prio, os.path.split(filename.lower()))
 
