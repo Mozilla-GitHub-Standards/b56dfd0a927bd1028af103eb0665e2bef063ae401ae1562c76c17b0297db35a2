@@ -404,7 +404,7 @@ class SignatureInfo(object):
             is_signer_certificate = (
                 info['issuer'] == self.issuer and
                 info['serial_number'] == self.signer_serial_number
-                )
+            )
             if is_signer_certificate:
                 return info
 
