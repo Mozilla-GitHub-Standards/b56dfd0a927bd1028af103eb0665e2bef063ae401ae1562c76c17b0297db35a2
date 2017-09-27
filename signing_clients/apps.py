@@ -18,11 +18,6 @@ from six.moves import cStringIO as StringIO
 from asn1crypto import cms, core as asn1core
 
 
-# Patch asn1crypto teletex codec to actually be latin 1 (iso-8859-1)
-# See https://github.com/wbond/asn1crypto/issues/60 and
-# https://github.com/mozilla/signing-clients/issues/23 for more details
-asn1core.TeletexString._encoding = 'latin1'
-
 headers_re = re.compile(
     r"""^((?:Manifest|Signature)-Version
           |Name
