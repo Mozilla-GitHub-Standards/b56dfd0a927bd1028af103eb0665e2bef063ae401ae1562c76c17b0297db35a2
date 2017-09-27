@@ -187,7 +187,7 @@ class SigningTest(unittest.TestCase):
                      'META-INF/zoidberg.rsa',
                      'META-INF/zoidberg.sf',
                      'test-dir/', 'test-dir/nested-test-file']
-            zfiles = [f.filename for f in sorted(zin.filelist, key=file_key)]
+            zfiles = sorted([z.filename for z in zin.filelist], key=file_key)
             self.assertEqual(files, zfiles)
             zip_sig_digest = sha1()
             zip_sig_digest.update(zin.read('META-INF/zoidberg.rsa'))
@@ -219,7 +219,7 @@ class SigningTest(unittest.TestCase):
                      'META-INF/zigbert.rsa',
                      'META-INF/zigbert.sf',
                      'test-dir/', 'test-dir/nested-test-file']
-            zfiles = [f.filename for f in sorted(zin.filelist, key=file_key)]
+            zfiles = sorted([z.filename for z in zin.filelist], key=file_key)
             self.assertEqual(files, zfiles)
             zip_sig_digest = sha1()
             zip_sig_digest.update(zin.read('META-INF/zigbert.rsa'))

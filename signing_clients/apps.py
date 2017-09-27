@@ -17,8 +17,6 @@ from six.moves import cStringIO as StringIO
 
 from asn1crypto import cms, core as asn1core
 
-from . import constants
-
 
 # Patch asn1crypto teletex codec to actually be latin 1 (iso-8859-1)
 # See https://github.com/wbond/asn1crypto/issues/60 and
@@ -33,6 +31,9 @@ headers_re = re.compile(
           \s*:\s*(.*)""", re.X | re.I)
 continuation_re = re.compile(r"""^ (.*)""", re.I)
 directory_re = re.compile(r"[\\/]$")
+
+LICENSE_FILENAMES = ["MPL", "GPL", "LGPL",
+                     "COPYING", "LICENSE", "license.txt"]
 
 
 # partially copied from Django
@@ -79,22 +80,40 @@ def ignore_certain_metainf_files(filename):
     return False
 
 
-def file_key(zinfo):
-    '''
-    Sort keys for xpi files
-    @param name: name of the file to generate the sort key from
-    '''
-    # Copied from xpisign.py's api.py and tweaked
-    name = zinfo.filename
+def file_key(filename):
+    """Sort keys for xpi files
+
+    The filenames in a manifest are ordered so that files not in a
+    directory come before files in any directory, ordered
+    alphabetically but ignoring case, with a few exceptions
+    (install.rdf, chrome.manifest, icon.png and icon64.png come at the
+    beginning; licenses come at the end).
+
+    This order does not appear to affect anything in any way, but it
+    looks nicer.
+    """
     prio = 4
-    if name == 'install.rdf':
+    if filename == 'install.rdf':
         prio = 1
-    elif name in ["chrome.manifest", "icon.png", "icon64.png"]:
+    elif filename in ["chrome.manifest", "icon.png", "icon64.png"]:
         prio = 2
-    elif name in ["MPL", "GPL", "LGPL", "COPYING", "LICENSE", "license.txt"]:
+    elif filename in LICENSE_FILENAMES:
         prio = 5
-    parts = [prio] + list(os.path.split(name.lower()))
-    return "%d-%s-%s" % tuple(parts)
+    return (prio, os.path.split(filename.lower()))
+
+
+def manifest_header(type_name, version='1.0'):
+    """Returns a header, suitable for use in a manifest.
+
+    >>> manifest_header("signature")
+    "Signature-Version: 1.0"
+
+    :param type_name: The kind of manifest which needs a header:
+        "manifest", "signature".
+    :param version: The manifest version to encode in the header
+        (default: '1.0')
+    """
+    return u"{}-Version: {}".format(type_name.title(), version)
 
 
 def _digest(data):
@@ -109,21 +128,18 @@ def _digest(data):
 class Section(object):
     __slots__ = ('name', 'algos', 'digests')
 
-    def __init__(self, name, algos=('md5', 'sha1'), digests={}):
+    def __init__(self, name, digests=None):
         self.name = name
-        self.algos = algos
-        self.digests = digests
+        self.digests = digests or {}
 
     def __str__(self):
         # Important thing to note: placement of newlines in these strings is
         # sensitive and should not be changed without reading through
         # http://docs.oracle.com/javase/7/docs/technotes/guides/jar/jar.html#JAR%20Manifest
         # thoroughly.
-        algos = b''
         order = list(self.digests.keys())
         order.sort()
-        for algo in order:
-            algos += b' %s' % force_bytes(algo.upper())
+        algos = ' '.join([algo.upper() for algo in order])
         entry = b''
         # The spec for zip files only supports extended ASCII and UTF-8
         # See http://www.pkware.com/documents/casestudies/APPNOTE.TXT
@@ -139,7 +155,7 @@ class Section(object):
             if name:
                 entry += b'\n '
         entry += b'\n'
-        entry += b'Digest-Algorithms:%s\n' % force_bytes(algos)
+        entry += b'Digest-Algorithms: %s\n' % force_bytes(algos)
         for algo in order:
             entry += b'%s-Digest: %s\n' % (force_bytes(algo.upper()),
                                            b64encode(self.digests[algo]))
@@ -147,20 +163,20 @@ class Section(object):
 
 
 @python_2_unicode_compatible
-class Manifest(list):
+class Manifest(object):
     version = '1.0'
     # Older versions of Firefox crash if a JAR manifest style file doesn't
     # end in a blank line("\n\n").  For more details see:
     # https://bugzilla.mozilla.org/show_bug.cgi?id=1158467
 
-    def __init__(self, *args, **kwargs):
-        super(Manifest, self).__init__(*args)
+    def __init__(self, sections, **kwargs):
+        super(Manifest, self).__init__()
+        self.sections = sections
         for k, v in kwargs.items():
             setattr(self, k, v)
 
     @classmethod
     def parse(klass, buf):
-        #version = None
         if hasattr(buf, 'readlines'):
             fest = buf
         else:
@@ -182,6 +198,14 @@ class Manifest(list):
             # End of section
             if not line:
                 if item:
+                    algos = item.pop('algos')
+                    found_algos = set(item['digests'].keys())
+                    if algos is not None and set(algos) != found_algos:
+                        error_msg = (
+                            "Manifest parsing error: saw algos {} despite "
+                            "only listing {} (line {})").format(
+                                found_algos, set(algos), lineno)
+                        raise ParsingError(error_msg)
                     items.append(Section(item.pop('name'), **item))
                     item = {}
                 header = ''
@@ -202,8 +226,6 @@ class Manifest(list):
             value = match.group(2)
             if '-version' == header[-8:]:
                 # Not doing anything with these at the moment
-                #payload = header[:-8]
-                #version = value.strip()
                 pass
             elif '-digest-manifest' == header[-16:]:
                 if 'digest_manifests' not in kwargs:
@@ -218,7 +240,7 @@ class Manifest(list):
                 item['algos'] = tuple(re.split('\s+', value.lower()))
                 continue
             elif '-digest' == header[-7:]:
-                if not 'digests' in item:
+                if 'digests' not in item:
                     item['digests'] = {}
                 item['digests'][header[:-7]] = b64decode(value)
                 continue
@@ -227,17 +249,11 @@ class Manifest(list):
         return klass(items)
 
     @property
-    def header(self):
-        return b"%s-Version: %s" % (
-            force_bytes(type(self).__name__.title()),
-            force_bytes(self.version))
-
-    @property
     def body(self):
-        return b"\n".join([force_bytes(i) for i in self])
+        return b"\n".join([force_bytes(i) for i in self.sections])
 
     def __str__(self):
-        segments = [self.header, b"", self.body]
+        segments = [force_bytes(manifest_header('manifest')), b"", self.body]
         segments.append(b"")
         return (b"\n".join(
             force_bytes(item) for item in segments)
@@ -245,8 +261,10 @@ class Manifest(list):
 
 
 @python_2_unicode_compatible
-class Signature(Manifest):
-    digest_manifests = {}
+class Signature(object):
+    def __init__(self, digest_manifests):
+        super(Signature, self).__init__()
+        self.digest_manifests = digest_manifests
 
     @property
     def digest_manifest(self):
@@ -256,7 +274,7 @@ class Signature(Manifest):
 
     @property
     def header(self):
-        segments = [force_bytes(super(Signature, self).header)]
+        segments = [force_bytes(manifest_header('Signature'))]
         segments.extend(self.digest_manifest)
         segments.append(b"")
         return b"\n".join(force_bytes(item) for item in segments)
@@ -281,11 +299,14 @@ class JarExtractor(object):
 
         def mksection(data, fname):
             digests = _digest(data)
-            item = Section(fname, algos=tuple(digests.keys()),
-                           digests=digests)
+            item = Section(fname, digests=digests)
             self._digests.append(item)
+
+        def zinfo_key(zinfo):
+            return file_key(zinfo.filename)
+
         with ZipFile(self.inpath, 'r') as zin:
-            for f in sorted(zin.filelist, key=file_key):
+            for f in sorted(zin.filelist, key=zinfo_key):
                 # Skip directories and specific files found in META-INF/ that
                 # are not permitted in the manifest
                 if (directory_re.search(f.filename)
@@ -294,11 +315,6 @@ class JarExtractor(object):
                 mksection(zin.read(f.filename), f.filename)
             if ids:
                 mksection(ids, 'META-INF/ids.json')
-
-    def _sign(self, item):
-        digests = _digest(str(item))
-        return Section(item.name, algos=tuple(digests.keys()),
-                       digests=digests)
 
     @property
     def manifest(self):
@@ -312,8 +328,8 @@ class JarExtractor(object):
         # sections of the the META-INF/manifest.mf file.  So we generate those
         # signatures here
         if not self._sig:
-            self._sig = Signature([self._sign(f) for f in self._digests],
-                                  digest_manifests=_digest(force_bytes(self.manifest)))
+            digest_manifests = _digest(force_bytes(self.manifest))
+            self._sig = Signature(digest_manifests)
         return self._sig
 
     @property
@@ -385,7 +401,11 @@ class SignatureInfo(object):
     def signer_certificate(self):
         for certificate in self.content['certificates']:
             info = certificate['tbs_certificate']
-            if info['issuer'] == self.issuer and info['serial_number'] == self.signer_serial_number:
+            is_signer_certificate = (
+                info['issuer'] == self.issuer and
+                info['serial_number'] == self.signer_serial_number
+            )
+            if is_signer_certificate:
                 return info
 
 
@@ -396,4 +416,5 @@ def get_signer_serial_number(pkcs7):
 
 def get_signer_organizational_unit_name(pkcs7):
     """Return the OU of the signer certificate."""
-    return SignatureInfo(pkcs7).signer_certificate['subject']['organizational_unit_name']
+    cert = SignatureInfo(pkcs7).signer_certificate
+    return cert['subject']['organizational_unit_name']
