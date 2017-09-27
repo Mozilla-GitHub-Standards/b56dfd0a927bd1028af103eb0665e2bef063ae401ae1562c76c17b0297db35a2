@@ -44,7 +44,7 @@ setup(
     keywords='web services',
     author='Ryan Tilder',
     author_email='service-dev@mozilla.com',
-    url='http://mozilla.org',
+    url='https://github.com/mozilla/signing-clients/',
     install_requires=[
         'asn1crypto>=0.23',
         'six>=1.10.0'
