@@ -45,7 +45,10 @@ setup(
     author='Ryan Tilder',
     author_email='service-dev@mozilla.com',
     url='http://mozilla.org',
-    install_requires=['asn1crypto', 'six'],
+    install_requires=[
+        'asn1crypto>=0.23',
+        'six>=1.10.0'
+    ],
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
