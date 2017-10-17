@@ -121,7 +121,7 @@ def _digest(data):
 
 @python_2_unicode_compatible
 class Section(object):
-    __slots__ = ('name', 'algos', 'digests')
+    __slots__ = ('name', 'digests')
 
     def __init__(self, name, digests=None):
         self.name = name
