@@ -3,7 +3,7 @@ import os
 import codecs
 from setuptools import setup, find_packages
 
-version = '1.4.0'
+version = '1.4.1'
 
 # Helper to publish to pypi. Just call `python setup.py publish`
 if sys.argv[-1] == 'publish':
