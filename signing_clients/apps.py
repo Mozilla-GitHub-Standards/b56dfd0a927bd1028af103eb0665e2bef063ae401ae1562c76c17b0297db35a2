@@ -141,7 +141,8 @@ class Section(object):
         # and search for "language encoding" for details
         #
         # See https://bugzilla.mozilla.org/show_bug.cgi?id=1013347
-        name = b'Name: %s' % force_bytes(self.name)
+        name = force_bytes(
+            'Name: %s' % force_bytes(self.name).decode('utf-8'))
 
         # See https://bugzilla.mozilla.org/show_bug.cgi?id=841569#c35
         while name:
@@ -150,10 +151,14 @@ class Section(object):
             if name:
                 entry += b'\n '
         entry += b'\n'
-        entry += b'Digest-Algorithms: %s\n' % force_bytes(algos)
+        entry += force_bytes('Digest-Algorithms: %s\n' % algos)
         for algo in order:
-            entry += b'%s-Digest: %s\n' % (force_bytes(algo.upper()),
-                                           b64encode(self.digests[algo]))
+            entry += force_bytes(
+                '%s-Digest: %s\n' % (
+                    algo.upper(),
+                    b64encode(self.digests[algo]).decode('utf-8')
+                )
+            )
         return entry.decode('utf-8')
 
 
@@ -263,9 +268,10 @@ class Signature(object):
 
     @property
     def digest_manifest(self):
-        return [b"%s-Digest-Manifest: %s" %
-                (force_bytes(item[0].upper()), b64encode(item[1]))
-                for item in sorted(self.digest_manifests.items())]
+        return ['%s-Digest-Manifest: %s' % (
+                item[0].upper(),
+                b64encode(item[1]).decode('utf-8')
+            ) for item in sorted(self.digest_manifests.items())]
 
     @property
     def header(self):
