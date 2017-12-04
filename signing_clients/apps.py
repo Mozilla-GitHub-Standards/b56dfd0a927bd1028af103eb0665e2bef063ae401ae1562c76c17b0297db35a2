@@ -4,6 +4,7 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 # ***** END LICENSE BLOCK *****
 
+from __future__ import unicode_literals
 import fnmatch
 import hashlib
 import itertools
@@ -22,7 +23,7 @@ headers_re = re.compile(
     r"""^((?:Manifest|Signature)-Version
           |Name
           |Digest-Algorithms
-          |(?:MD5|SHA1)-Digest(?:-Manifest)?)
+          |(?:MD5|SHA1|SHA256)-Digest(?:-Manifest)?)
           \s*:\s*(.*)""", re.X | re.I)
 continuation_re = re.compile(r"""^ (.*)""", re.I)
 directory_re = re.compile(r"[\\/]$")
@@ -116,7 +117,13 @@ def _digest(data):
     md5.update(force_bytes(data))
     sha1 = hashlib.sha1()
     sha1.update(force_bytes(data))
-    return {'md5': md5.digest(), 'sha1': sha1.digest()}
+    sha256 = hashlib.sha256()
+    sha256.update(force_bytes(data))
+    return {
+        'md5': md5.digest(),
+        'sha1': sha1.digest(),
+        'sha256': sha256.digest()
+    }
 
 
 @python_2_unicode_compatible

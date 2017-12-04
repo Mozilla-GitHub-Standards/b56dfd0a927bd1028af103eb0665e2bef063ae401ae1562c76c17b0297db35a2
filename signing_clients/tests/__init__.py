@@ -33,36 +33,61 @@ from signing_clients import constants
 
 
 MANIFEST_BODY = b"""Name: test-file
-Digest-Algorithms: MD5 SHA1
+Digest-Algorithms: MD5 SHA1 SHA256
 MD5-Digest: 5BXJnAbD0DzWPCj6Ve/16w==
 SHA1-Digest: 5Hwcbg1KaPMqjDAXV/XDq/f30U0=
+SHA256-Digest: Qe6tnliOw20rXQDNEBH5c6U0V7iKUtvb/ii6XyYeg1Q=
 
 Name: test-dir/nested-test-file
-Digest-Algorithms: MD5 SHA1
+Digest-Algorithms: MD5 SHA1 SHA256
 MD5-Digest: 53dwfEn/GnFiWp0NQyqWlA==
 SHA1-Digest: 4QzlrC8QyhQW1T0/Nay5kRr3gVo=
+SHA256-Digest: oGG4YXbBcs9Z2/o+/GXcM2THmJW1+eDs4v6RoJY1FxI=
 """
 
 MANIFEST = b"Manifest-Version: 1.0\n\n" + MANIFEST_BODY
 
 SIGNATURE = b"""Signature-Version: 1.0
+MD5-Digest-Manifest: XZtjqQzYm3Bm/K96MoYlew==
+SHA1-Digest-Manifest: 33jErxc4ZRrCYrfN+qMA2xldfOQ=
+SHA256-Digest-Manifest: 4M9RzE2RG5+AdnT08paFs3h7pZ4JsUSBArc5bczLoH8=
+
+"""
+
+SIGNATURES_BODY = b"""Name: test-file
+Digest-Algorithms: MD5 SHA1 SHA256
+MD5-Digest: mM8UDjSJ8mEGjOlE4NiYGg==
+SHA1-Digest: T31VSVaeb7yyL8MIx2pFG6qsYcs=
+SHA256-Digest: RLKPTNnJkE1qJv9ozZjEa3t4ia6O5RszN/DtHnz0Ug4=
+
+Name: test-dir/nested-test-file
+Digest-Algorithms: MD5 SHA1 SHA256
+MD5-Digest: h75+tON340XNYvHyDvGIaA==
+SHA1-Digest: ulv8SL+/DN8KkhIjmcgJjEjrfvU=
+SHA256-Digest: cPfmYWOFjiz6nqyaDKGHMkbOV8EkZiNDTlgu0cyPe5s=
+"""
+
+SIGNATURES = SIGNATURE + b"\n" + SIGNATURES_BODY
+
+EXTRA_NEWLINE_SIGNATURE = b"""Signature-Version: 1.0
 MD5-Digest-Manifest: A3IkNTcP2L6JzwQzkp+6Kg==
 SHA1-Digest-Manifest: xQKf9C1JcIjfZoFxTWt3pzW2KYI=
-
+SHA256-Digest-Manifest: 4M9RzE2RG5+AdnT08paFs3h7pZ4JsUSBArc5bczLoH8=
 """
 
 CONTINUED_MANIFEST = MANIFEST + b"""
 Name: test-dir/nested-test-dir/nested-test-dir/nested-test-dir/nested-te
  st-file
-Digest-Algorithms: MD5 SHA1
+Digest-Algorithms: MD5 SHA1 SHA256
 MD5-Digest: 53dwfEn/GnFiWp0NQyqWlA==
 SHA1-Digest: 4QzlrC8QyhQW1T0/Nay5kRr3gVo=
+SHA256-Digest: Qe6tnliOw20rXQDNEBH5c6U0V7iKUtvb/ii6XyYeg1Q=
 """
 
 # Test for 72 byte limit test
 BROKEN_MANIFEST = MANIFEST + b"""
 Name: test-dir/nested-test-dir/nested-test-dir/nested-test-dir/nested-test-file
-Digest-Algorithms: MD5 SHA1
+Digest-Algorithms: MD5 SHA1 SHA256
 MD5-Digest: 53dwfEn/GnFiWp0NQyqWlA==
 SHA1-Digest: 4QzlrC8QyhQW1T0/Nay5kRr3gVo=
 """
@@ -70,20 +95,23 @@ SHA1-Digest: 4QzlrC8QyhQW1T0/Nay5kRr3gVo=
 VERY_LONG_MANIFEST = b"""Manifest-Version: 1.0
 
 Name: test-file
-Digest-Algorithms: MD5 SHA1
+Digest-Algorithms: MD5 SHA1 SHA256
 MD5-Digest: 5BXJnAbD0DzWPCj6Ve/16w==
 SHA1-Digest: 5Hwcbg1KaPMqjDAXV/XDq/f30U0=
+SHA256-Digest: Qe6tnliOw20rXQDNEBH5c6U0V7iKUtvb/ii6XyYeg1Q=
 
 Name: test-dir/nested-test-file
-Digest-Algorithms: MD5 SHA1
+Digest-Algorithms: MD5 SHA1 SHA256
 MD5-Digest: 53dwfEn/GnFiWp0NQyqWlA==
 SHA1-Digest: 4QzlrC8QyhQW1T0/Nay5kRr3gVo=
+SHA256-Digest: oGG4YXbBcs9Z2/o+/GXcM2THmJW1+eDs4v6RoJY1FxI=
 
 Name: test-dir/nested-test-dir-0/nested-test-dir-1/nested-test-dir-2/lon
  g-path-name-test
-Digest-Algorithms: MD5 SHA1
+Digest-Algorithms: MD5 SHA1 SHA256
 MD5-Digest: 9bU/UEp83EbO/DWN3Ds/cg==
 SHA1-Digest: lIbbwE8/2LFOD00+bJ/Wu80lR/I=
+SHA256-Digest: EgUBj2nAF2X72XJgPRa9FBYwCcjL9I7U2Cc3hjuA1z8=
 
 """
 
@@ -91,9 +119,10 @@ SHA1-Digest: lIbbwE8/2LFOD00+bJ/Wu80lR/I=
 UNICODE_MANIFEST = u"""Manifest-Version: 1.0
 
 Name: test-dir/súité-höñe.txt
-Digest-Algorithms: MD5 SHA1
+Digest-Algorithms: MD5 SHA1 SHA256
 MD5-Digest: +ZqzWWcMtOrWxs8Xr/tt+A==
 SHA1-Digest: B5HkCxgt6fXNr+dWPwXH2aALVWk=
+SHA256-Digest: wtitqbgO0SSjQVJazwgo05dhXUc5Zfqih0NznR7d33k=
 """
 
 
